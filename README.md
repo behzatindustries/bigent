@@ -6,13 +6,29 @@ BIgent does not fork or edit Pi. Pi is an npm dependency, and the `bigent update
 
 ## Install
 
+From GitHub:
+
 ```sh
+git clone https://github.com/behzatindustries/bigent.git
+cd bigent
 npm install
 npm run build
 npm link
 ```
 
-After linking, the command is available as:
+Without global npm permissions, use the hosted installer:
+
+```sh
+curl -fsSL https://behzat.org/install-bigent.sh | sh
+```
+
+Or run the same script from GitHub:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/behzatindustries/bigent/main/scripts/install-bigent.sh | sh
+```
+
+After install, the command is available as:
 
 ```sh
 bigent help
@@ -69,3 +85,13 @@ bigent update-pi --commit
 ```
 
 That command installs the latest `@earendil-works/pi-coding-agent` and `@earendil-works/pi-ai`, then builds BIgent. With `--commit`, it also commits `package.json` and `package-lock.json`.
+
+## behzat.org Installer
+
+Upload [scripts/install-bigent.sh](scripts/install-bigent.sh) to:
+
+```text
+https://behzat.org/install-bigent.sh
+```
+
+The script installs or updates BIgent from the GitHub repo, runs `npm ci`, builds the TypeScript package, and links `bigent` into `~/.local/bin`.
