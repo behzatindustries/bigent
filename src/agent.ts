@@ -131,12 +131,12 @@ export class BigentAgent {
   private resolveApiCredential(): { provider?: string; key?: string } {
     const fallbackProvider = this.piApiProvider ?? this.piProvider;
     if (!this.piApiKey) return { provider: fallbackProvider };
-    if (fallbackProvider) return { provider: fallbackProvider, key: this.piApiKey };
 
     const legacyMatch = this.piApiKey.match(/^([a-zA-Z0-9_.-]+)\s+(.+)$/);
     if (legacyMatch) {
       return { provider: legacyMatch[1], key: legacyMatch[2] };
     }
+    if (fallbackProvider) return { provider: fallbackProvider, key: this.piApiKey };
     return { key: this.piApiKey };
   }
 
