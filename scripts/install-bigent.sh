@@ -41,7 +41,7 @@ else
 fi
 
 cd "$INSTALL_DIR"
-npm ci
+npm ci --ignore-scripts
 npm run build
 
 ln -sf "$INSTALL_DIR/dist/cli.js" "$BIN_PATH"

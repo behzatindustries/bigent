@@ -15,7 +15,7 @@
     "check": "tsc -p tsconfig.json --noEmit",
     "start": "node dist/cli.js",
     "dev": "tsx src/cli.ts",
-    "update-pi": "npm install @earendil-works/pi-coding-agent@latest @earendil-works/pi-ai@latest && npm run build"
+    "update-pi": "npm install --ignore-scripts @earendil-works/pi-coding-agent@latest @earendil-works/pi-ai@latest && npm run build"
   },
   "dependencies": {
     "@earendil-works/pi-ai": "^0.78.1",

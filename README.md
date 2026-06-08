@@ -11,7 +11,7 @@ From GitHub:
 ```sh
 git clone https://github.com/behzatindustries/bigent.git
 cd bigent
-npm install
+npm install --ignore-scripts
 npm run build
 npm link
 ```
@@ -131,7 +131,7 @@ bigent update-pi
 bigent update-pi --commit
 ```
 
-`bigent update` pulls the latest BIgent source from GitHub, updates the Pi SDK packages, and rebuilds. `bigent update-pi` only updates `@earendil-works/pi-coding-agent` and `@earendil-works/pi-ai`; with `--commit`, it also commits `package.json` and `package-lock.json`.
+`bigent update` pulls the latest BIgent source from GitHub, updates the Pi SDK packages with `npm install --ignore-scripts`, and rebuilds. `bigent update-pi` only updates `@earendil-works/pi-coding-agent` and `@earendil-works/pi-ai` with install scripts disabled; with `--commit`, it also commits `package.json` and `package-lock.json`.
 
 ## Uninstall
 
@@ -150,4 +150,4 @@ Upload [scripts/install-bigent.sh](scripts/install-bigent.sh) to:
 https://behzat.org/install-bigent.sh
 ```
 
-The script installs or updates BIgent from the GitHub repo, runs `npm ci`, builds the TypeScript package, links `bigent` into `~/.local/bin`, prompts for Telegram/Pi settings, and can install the user systemd service.
+The script installs or updates BIgent from the GitHub repo, runs `npm ci --ignore-scripts`, builds the TypeScript package, links `bigent` into `~/.local/bin`, prompts for Telegram/Pi settings, and can install the user systemd service.

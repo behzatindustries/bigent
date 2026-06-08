@@ -7,7 +7,7 @@ export type UpdatePiOptions = {
 };
 
 export function updatePiDependency(options: UpdatePiOptions = {}): void {
-  run("npm", ["install", "@earendil-works/pi-coding-agent@latest", "@earendil-works/pi-ai@latest"]);
+  run("npm", ["install", "--ignore-scripts", "@earendil-works/pi-coding-agent@latest", "@earendil-works/pi-ai@latest"]);
   run("npm", ["run", "build"]);
   if (options.commit) {
     run("git", ["add", "package.json", "package-lock.json"]);
@@ -21,7 +21,7 @@ export function updatePiDependency(options: UpdatePiOptions = {}): void {
 export function updateAgentAndPi(): void {
   const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
   run("git", ["-C", repoRoot, "pull", "--ff-only", "origin", "main"]);
-  run("npm", ["install", "@earendil-works/pi-coding-agent@latest", "@earendil-works/pi-ai@latest"], repoRoot);
+  run("npm", ["install", "--ignore-scripts", "@earendil-works/pi-coding-agent@latest", "@earendil-works/pi-ai@latest"], repoRoot);
   run("npm", ["run", "build"], repoRoot);
   console.log("BIgent and Pi SDK updated.");
 }
