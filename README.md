@@ -37,7 +37,7 @@ bigent help
 The installer asks for:
 
 - Telegram bot token
-- Telegram allowlist
+- Telegram allowlist user/chat ID, required so only that Telegram user/chat can talk to BIgent. Use a helper like `@userinfobot` if you do not know your ID.
 - BIgent working directory
 - BIgent state directory
 - Pi provider
@@ -72,6 +72,8 @@ journalctl --user -u bigent-telegram.service -f
 ```sh
 bigent ask "inspect this repo and summarize the package"
 bigent search "latest Pi coding agent"
+bigent service status
+bigent service restart
 ```
 
 Useful environment:
@@ -101,6 +103,23 @@ BIgent adds three minimal custom tools:
 - `http_fetch`: fetch and trim public HTTP(S) pages.
 - `now`: local and UTC time.
 - `subagent`: run a focused one-shot BIgent/Pi subagent for isolated work.
+
+## Telegram Commands
+
+- `/help`: show commands
+- `/new [name]`: start a new session
+- `/sessions`: list sessions
+- `/session use <id>`: switch session
+- `/session delete <id>`: delete a session
+- `/status`: show active config
+- `/model <provider> <model>`: set model
+- `/model clear`: clear model override
+- `/models [provider]`: list known models
+- `/provider [id|clear]`: manage provider
+- `/thinking [level|clear]`: manage thinking level
+- `/apikey status|set|clear`: manage chat API key override
+- `/service start|stop|restart|status|logs|enable|disable`: manage user service
+- `/stop`: stop the Telegram service
 
 ## Updating Pi
 

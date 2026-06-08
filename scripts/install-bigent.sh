@@ -133,7 +133,11 @@ if [ ! -r /dev/tty ]; then
   echo "Run manually later: $BIN_PATH help"
 else
   TELEGRAM_BOT_TOKEN_VALUE="$(prompt_secret "Telegram bot token (leave blank to skip)")"
-  BIGENT_TELEGRAM_ALLOWLIST_VALUE="$(prompt "Telegram allowlist user/chat IDs, comma-separated (blank allows anyone)" "")"
+  BIGENT_TELEGRAM_ALLOWLIST_VALUE="$(prompt "Allowed Telegram user/chat ID, comma-separated for more (use @userinfobot if needed)" "")"
+  while [ ! "$BIGENT_TELEGRAM_ALLOWLIST_VALUE" ]; do
+    echo "Allowlist is required so BIgent only talks to approved Telegram IDs." >/dev/tty
+    BIGENT_TELEGRAM_ALLOWLIST_VALUE="$(prompt "Allowed Telegram user/chat ID" "")"
+  done
   BIGENT_CWD_VALUE="$(prompt "BIgent working directory" "$HOME")"
   BIGENT_HOME_VALUE="$(prompt "BIgent state directory" "$HOME/.bigent")"
   BIGENT_PI_PROVIDER_VALUE="$(prompt "Pi provider" "anthropic")"

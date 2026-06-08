@@ -2,6 +2,7 @@
 import { BigentAgent } from "./agent.js";
 import { loadConfig } from "./config.js";
 import { TelegramBridge } from "./telegram.js";
+import { runServiceAction, serviceLogs } from "./service.js";
 import { updateAgentAndPi, updatePiDependency } from "./update-pi.js";
 import { webSearch } from "./tools.js";
 
@@ -11,13 +12,14 @@ Usage:
   bigent ask <prompt...>       Run one prompt through Pi
   bigent search <query...>     Test BIgent web search directly
   bigent telegram              Run the Telegram bot bridge
+  bigent service <action>      Manage user systemd Telegram service
   bigent update                Update BIgent source and Pi SDK
   bigent update-pi [--commit]  One-click update to the latest Pi SDK
   bigent help                  Show this help
 
 Environment:
   TELEGRAM_BOT_TOKEN           Telegram bot token for telegram mode
-  BIGENT_TELEGRAM_ALLOWLIST    Optional comma-separated user/chat IDs
+  BIGENT_TELEGRAM_ALLOWLIST    Comma-separated allowed user/chat IDs
   BIGENT_CWD                   Optional working directory for Pi sessions
   BIGENT_HOME                  Optional BIgent state dir, defaults to ~/.bigent
   BIGENT_PI_PROVIDER           Optional Pi provider, for example anthropic
@@ -68,6 +70,23 @@ async function main(): Promise<void> {
 
   if (command === "telegram") {
     await new TelegramBridge(config).run();
+    return;
+  }
+
+  if (command === "service") {
+    const action = args[0] ?? "status";
+    if (action === "--help" || action === "-h") {
+      console.log("Usage: bigent service start|stop|restart|status|logs|enable|disable");
+      return;
+    }
+    if (action === "logs") {
+      console.log(serviceLogs());
+      return;
+    }
+    if (!["start", "stop", "restart", "status", "enable", "disable"].includes(action)) {
+      throw new Error("Usage: bigent service start|stop|restart|status|logs|enable|disable");
+    }
+    console.log(runServiceAction(action as "start" | "stop" | "restart" | "status" | "enable" | "disable"));
     return;
   }
 
