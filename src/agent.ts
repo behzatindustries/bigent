@@ -8,9 +8,7 @@ import {
   ModelRegistry,
   SessionManager,
 } from "@earendil-works/pi-coding-agent";
-import type { Model } from "@earendil-works/pi-ai";
-import type { Api } from "@earendil-works/pi-ai";
-import { Type } from "typebox";
+import { Type, type Api, type Model } from "@earendil-works/pi-ai";
 import type { BigentThinkingLevel } from "./config.js";
 import { BIGENT_SYSTEM_PROMPT } from "./prompt.js";
 import { commonTools } from "./tools.js";

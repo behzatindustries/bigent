@@ -1,4 +1,4 @@
-import { Type } from "typebox";
+import { Type } from "@earendil-works/pi-ai";
 import { defineTool } from "@earendil-works/pi-coding-agent";
 
 const USER_AGENT = "BIgent/0.1 (+https://github.com/behzatindustries/bigent)";
