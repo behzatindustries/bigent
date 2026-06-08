@@ -261,6 +261,22 @@ export class TelegramBridge {
       );
       return;
     }
+    if (action === "fix") {
+      const chat = await this.state.updateChat(chatId, (entry) => {
+        if (!entry.piApiProvider && entry.piApiKey) {
+          const match = entry.piApiKey.match(/^([a-zA-Z0-9_.-]+)\s+(.+)$/);
+          if (match) {
+            entry.piApiProvider = match[1];
+            entry.piApiKey = match[2];
+          }
+        }
+      });
+      await this.sendMessage(
+        chatId,
+        chat.piApiProvider ? `API key state fixed for provider: ${chat.piApiProvider}` : "No legacy API key state found to fix.",
+      );
+      return;
+    }
     if (action === "provider") {
       const provider = rest[0];
       if (!provider) throw new Error("Usage: /apikey provider <provider>");
@@ -270,7 +286,7 @@ export class TelegramBridge {
       await this.sendMessage(chatId, `API provider set: ${provider}`);
       return;
     }
-    throw new Error("Usage: /apikey status | /apikey set <provider> <key> | /apikey provider <provider> | /apikey clear");
+    throw new Error("Usage: /apikey status | /apikey set <provider> <key> | /apikey provider <provider> | /apikey fix | /apikey clear");
   }
 
   private async handleServiceCommand(chatId: string, args: string[]): Promise<void> {
@@ -430,6 +446,7 @@ const HELP_TEXT = `BIgent commands
 /apikey status - show key status
 /apikey set <provider> <key> - save chat key override
 /apikey provider <provider> - set key provider
+/apikey fix - migrate old provider/key state
 /apikey clear - clear chat key override
 /service status - user service status
 /service start|stop|restart|enable|disable|logs

@@ -67,9 +67,9 @@ export class BigentAgent {
 
     const authStorage = AuthStorage.create(authPath);
     const modelRegistry = ModelRegistry.create(authStorage, modelsPath);
-    const apiProvider = this.piApiProvider ?? this.piProvider;
-    if (apiProvider && this.piApiKey) {
-      authStorage.setRuntimeApiKey(apiProvider, this.piApiKey);
+    const { provider: apiProvider, key: apiKey } = this.resolveApiCredential();
+    if (apiProvider && apiKey) {
+      authStorage.setRuntimeApiKey(apiProvider, apiKey);
     }
     const model = this.resolveConfiguredModel(modelRegistry);
     const loader = new DefaultResourceLoader({
@@ -118,6 +118,18 @@ export class BigentAgent {
       throw new Error(`Unknown Pi model: ${this.piProvider}/${this.piModel}`);
     }
     return model;
+  }
+
+  private resolveApiCredential(): { provider?: string; key?: string } {
+    const fallbackProvider = this.piApiProvider ?? this.piProvider;
+    if (!this.piApiKey) return { provider: fallbackProvider };
+    if (fallbackProvider) return { provider: fallbackProvider, key: this.piApiKey };
+
+    const legacyMatch = this.piApiKey.match(/^([a-zA-Z0-9_.-]+)\s+(.+)$/);
+    if (legacyMatch) {
+      return { provider: legacyMatch[1], key: legacyMatch[2] };
+    }
+    return { key: this.piApiKey };
   }
 
   private createSubagentTool() {
