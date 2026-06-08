@@ -15,6 +15,8 @@ import { commonTools } from "./tools.js";
 
 type AgentEvent = {
   type?: string;
+  message?: unknown;
+  messages?: unknown[];
   assistantMessageEvent?: {
     type?: string;
     delta?: string;
@@ -94,6 +96,14 @@ export class BigentAgent {
       if (event.type === "message_update" && event.assistantMessageEvent?.type === "text_delta") {
         output += event.assistantMessageEvent.delta ?? "";
       }
+      if (event.type === "message_end") {
+        const finalText = extractAssistantText(event.message);
+        if (finalText) output = finalText;
+      }
+      if (event.type === "agent_end" && event.messages) {
+        const finalText = extractLastAssistantText(event.messages);
+        if (finalText) output = finalText;
+      }
     });
 
     try {
@@ -160,4 +170,34 @@ export class BigentAgent {
       },
     });
   }
+}
+
+function extractLastAssistantText(messages: unknown[]): string {
+  for (const message of [...messages].reverse()) {
+    const text = extractAssistantText(message);
+    if (text) return text;
+  }
+  return "";
+}
+
+function extractAssistantText(message: unknown): string {
+  if (!message || typeof message !== "object") return "";
+  const candidate = message as { role?: string; content?: unknown; errorMessage?: string };
+  if (candidate.role !== "assistant") return "";
+  const text = extractText(candidate.content);
+  return text || candidate.errorMessage || "";
+}
+
+function extractText(content: unknown): string {
+  if (typeof content === "string") return content.trim();
+  if (!Array.isArray(content)) return "";
+  return content
+    .map((part) => {
+      if (!part || typeof part !== "object") return "";
+      const candidate = part as { type?: string; text?: string };
+      return candidate.type === "text" && candidate.text ? candidate.text : "";
+    })
+    .filter(Boolean)
+    .join("\n")
+    .trim();
 }
