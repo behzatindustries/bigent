@@ -34,6 +34,19 @@ After install, the command is available as:
 bigent help
 ```
 
+The installer asks for:
+
+- Telegram bot token
+- Telegram allowlist
+- BIgent working directory
+- BIgent state directory
+- Pi provider
+- Pi model
+- Pi provider API key
+- Pi thinking level
+
+It writes those settings to `~/.config/bigent/bigent.env`.
+
 ## Telegram
 
 Create a Telegram bot with BotFather, then set:
@@ -46,16 +59,29 @@ bigent telegram
 
 If `BIGENT_TELEGRAM_ALLOWLIST` is empty, any Telegram chat that can reach the bot can use it.
 
+The installer can also create and start a user systemd service:
+
+```sh
+systemctl --user status bigent-telegram.service
+systemctl --user restart bigent-telegram.service
+journalctl --user -u bigent-telegram.service -f
+```
+
 ## CLI
 
 ```sh
 bigent ask "inspect this repo and summarize the package"
+bigent search "latest Pi coding agent"
 ```
 
 Useful environment:
 
 - `BIGENT_CWD`: working directory Pi should operate in. Defaults to the current directory.
 - `BIGENT_HOME`: BIgent state, auth, models, and sessions directory. Defaults to `~/.bigent`.
+- `BIGENT_PI_PROVIDER`: Pi provider, for example `anthropic`.
+- `BIGENT_PI_MODEL`: Pi model, for example `claude-sonnet-4-5`.
+- `BIGENT_PI_API_KEY`: Runtime API key for the selected provider.
+- `BIGENT_PI_THINKING`: `off`, `minimal`, `low`, `medium`, `high`, or `xhigh`.
 
 ## Tools
 
@@ -74,17 +100,19 @@ BIgent adds three minimal custom tools:
 - `web_search`: current web search through DuckDuckGo's lightweight HTML endpoint.
 - `http_fetch`: fetch and trim public HTTP(S) pages.
 - `now`: local and UTC time.
+- `subagent`: run a focused one-shot BIgent/Pi subagent for isolated work.
 
 ## Updating Pi
 
 Run:
 
 ```sh
+bigent update
 bigent update-pi
 bigent update-pi --commit
 ```
 
-That command installs the latest `@earendil-works/pi-coding-agent` and `@earendil-works/pi-ai`, then builds BIgent. With `--commit`, it also commits `package.json` and `package-lock.json`.
+`bigent update` pulls the latest BIgent source from GitHub, updates the Pi SDK packages, and rebuilds. `bigent update-pi` only updates `@earendil-works/pi-coding-agent` and `@earendil-works/pi-ai`; with `--commit`, it also commits `package.json` and `package-lock.json`.
 
 ## behzat.org Installer
 
@@ -94,4 +122,4 @@ Upload [scripts/install-bigent.sh](scripts/install-bigent.sh) to:
 https://behzat.org/install-bigent.sh
 ```
 
-The script installs or updates BIgent from the GitHub repo, runs `npm ci`, builds the TypeScript package, and links `bigent` into `~/.local/bin`.
+The script installs or updates BIgent from the GitHub repo, runs `npm ci`, builds the TypeScript package, links `bigent` into `~/.local/bin`, prompts for Telegram/Pi settings, and can install the user systemd service.

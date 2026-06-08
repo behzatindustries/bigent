@@ -4,9 +4,14 @@ import {
   AuthStorage,
   createAgentSession,
   DefaultResourceLoader,
+  defineTool,
   ModelRegistry,
   SessionManager,
 } from "@earendil-works/pi-coding-agent";
+import type { Model } from "@earendil-works/pi-ai";
+import type { Api } from "@earendil-works/pi-ai";
+import { Type } from "typebox";
+import type { BigentThinkingLevel } from "./config.js";
 import { BIGENT_SYSTEM_PROMPT } from "./prompt.js";
 import { commonTools } from "./tools.js";
 
@@ -22,17 +27,32 @@ export type BigentAgentOptions = {
   homeDir: string;
   cwd: string;
   sessionScope?: string;
+  piProvider?: string;
+  piModel?: string;
+  piApiKey?: string;
+  piThinking?: BigentThinkingLevel;
+  allowSubagents?: boolean;
 };
 
 export class BigentAgent {
   private readonly homeDir: string;
   private readonly cwd: string;
   private readonly sessionScope: string;
+  private readonly piProvider?: string;
+  private readonly piModel?: string;
+  private readonly piApiKey?: string;
+  private readonly piThinking?: BigentThinkingLevel;
+  private readonly allowSubagents: boolean;
 
   constructor(options: BigentAgentOptions) {
     this.homeDir = options.homeDir;
     this.cwd = options.cwd;
     this.sessionScope = options.sessionScope ?? "cli";
+    this.piProvider = options.piProvider;
+    this.piModel = options.piModel;
+    this.piApiKey = options.piApiKey;
+    this.piThinking = options.piThinking;
+    this.allowSubagents = options.allowSubagents ?? true;
   }
 
   async prompt(text: string): Promise<string> {
@@ -44,6 +64,10 @@ export class BigentAgent {
 
     const authStorage = AuthStorage.create(authPath);
     const modelRegistry = ModelRegistry.create(authStorage, modelsPath);
+    if (this.piProvider && this.piApiKey) {
+      authStorage.setRuntimeApiKey(this.piProvider, this.piApiKey);
+    }
+    const model = this.resolveConfiguredModel(modelRegistry);
     const loader = new DefaultResourceLoader({
       cwd: this.cwd,
       agentDir: this.homeDir,
@@ -55,10 +79,12 @@ export class BigentAgent {
       cwd: this.cwd,
       authStorage,
       modelRegistry,
+      model,
+      thinkingLevel: this.piThinking,
       resourceLoader: loader,
       sessionManager: SessionManager.create(sessionDir),
-      tools: ["read", "bash", "edit", "write", "grep", "find", "ls", "web_search", "http_fetch", "now"],
-      customTools: commonTools,
+      tools: ["read", "bash", "edit", "write", "grep", "find", "ls", "web_search", "http_fetch", "now", "subagent"],
+      customTools: this.allowSubagents ? [...commonTools, this.createSubagentTool()] : commonTools,
     });
 
     let output = "";
@@ -75,5 +101,48 @@ export class BigentAgent {
     }
 
     return output.trim();
+  }
+
+  private resolveConfiguredModel(modelRegistry: ModelRegistry): Model<Api> | undefined {
+    if (!this.piProvider && !this.piModel) return undefined;
+    if (!this.piProvider || !this.piModel) {
+      throw new Error("Both BIGENT_PI_PROVIDER and BIGENT_PI_MODEL are required when either is set.");
+    }
+
+    const model = modelRegistry.find(this.piProvider, this.piModel);
+    if (!model) {
+      throw new Error(`Unknown Pi model: ${this.piProvider}/${this.piModel}`);
+    }
+    return model;
+  }
+
+  private createSubagentTool() {
+    return defineTool({
+      name: "subagent",
+      label: "Subagent",
+      description: "Run a focused one-shot BIgent/Pi subagent for an isolated task and return its answer.",
+      parameters: Type.Object({
+        task: Type.String({ description: "The exact task for the subagent." }),
+        scope: Type.Optional(Type.String({ description: "Short label for the subagent session." })),
+      }),
+      execute: async (_toolCallId, params) => {
+        const scope = (params.scope ?? "task").replace(/[^a-zA-Z0-9_.-]/g, "-").slice(0, 48);
+        const subagent = new BigentAgent({
+          homeDir: this.homeDir,
+          cwd: this.cwd,
+          sessionScope: `subagent-${scope}-${Date.now()}`,
+          piProvider: this.piProvider,
+          piModel: this.piModel,
+          piApiKey: this.piApiKey,
+          piThinking: this.piThinking,
+          allowSubagents: false,
+        });
+        const answer = await subagent.prompt(params.task);
+        return {
+          content: [{ type: "text", text: answer || "Subagent completed without text output." }],
+          details: { scope },
+        };
+      },
+    });
   }
 }

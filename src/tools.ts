@@ -1,7 +1,7 @@
 import { Type } from "typebox";
 import { defineTool } from "@earendil-works/pi-coding-agent";
 
-const USER_AGENT = "BIgent/0.1 (+https://github.com/behzat-industries/bigent)";
+const USER_AGENT = "BIgent/0.1 (+https://github.com/behzatindustries/bigent)";
 
 function stripHtml(value: string): string {
   return value
@@ -22,27 +22,8 @@ export const webSearchTool = defineTool({
     maxResults: Type.Optional(Type.Number({ minimum: 1, maximum: 8, description: "Maximum result count" })),
   }),
   execute: async (_toolCallId, params) => {
-    const maxResults = Math.max(1, Math.min(8, Number(params.maxResults ?? 5)));
-    const url = new URL("https://html.duckduckgo.com/html/");
-    url.searchParams.set("q", params.query);
-
-    const response = await fetch(url, {
-      headers: {
-        "user-agent": USER_AGENT,
-        accept: "text/html",
-      },
-    });
-    if (!response.ok) {
-      throw new Error(`Search failed with HTTP ${response.status}`);
-    }
-
-    const html = await response.text();
-    const matches = [...html.matchAll(/<a[^>]+class="result__a"[^>]+href="([^"]+)"[^>]*>(.*?)<\/a>/gs)]
-      .slice(0, maxResults)
-      .map((match, index) => {
-        const resultUrl = new URL(match[1], "https://duckduckgo.com").searchParams.get("uddg") ?? match[1];
-        return `${index + 1}. ${stripHtml(match[2])}\n${resultUrl}`;
-      });
+    const maxResults = normalizeMax(params.maxResults, 5, 1, 8);
+    const matches = await webSearch(params.query, maxResults);
 
     return {
       content: [{ type: "text", text: matches.length ? matches.join("\n\n") : "No results found." }],
@@ -50,6 +31,29 @@ export const webSearchTool = defineTool({
     };
   },
 });
+
+export async function webSearch(query: string, maxResults = 5): Promise<string[]> {
+  const url = new URL("https://html.duckduckgo.com/html/");
+  url.searchParams.set("q", query);
+
+  const response = await fetch(url, {
+    headers: {
+      "user-agent": USER_AGENT,
+      accept: "text/html",
+    },
+  });
+  if (!response.ok) {
+    throw new Error(`Search failed with HTTP ${response.status}`);
+  }
+
+  const html = await response.text();
+  return [...html.matchAll(/<a[^>]+class="result__a"[^>]+href="([^"]+)"[^>]*>(.*?)<\/a>/gs)]
+    .slice(0, maxResults)
+    .map((match, index) => {
+      const resultUrl = new URL(match[1], "https://duckduckgo.com").searchParams.get("uddg") ?? match[1];
+      return `${index + 1}. ${stripHtml(match[2])}\n${resultUrl}`;
+    });
+}
 
 export const httpFetchTool = defineTool({
   name: "http_fetch",
@@ -65,7 +69,7 @@ export const httpFetchTool = defineTool({
       throw new Error("Only http and https URLs are supported.");
     }
 
-    const maxChars = Math.max(200, Math.min(12000, Number(params.maxChars ?? 4000)));
+    const maxChars = normalizeMax(params.maxChars, 4000, 200, 12000);
     const response = await fetch(url, {
       headers: {
         "user-agent": USER_AGENT,
@@ -100,3 +104,7 @@ export const nowTool = defineTool({
 });
 
 export const commonTools = [webSearchTool, httpFetchTool, nowTool];
+
+function normalizeMax(value: unknown, fallback: number, min: number, max: number): number {
+  return Math.max(min, Math.min(max, Number(value ?? fallback)));
+}

@@ -65,6 +65,10 @@ export class TelegramBridge {
         homeDir: this.config.homeDir,
         cwd: this.config.cwd,
         sessionScope: `telegram-${chatId}`,
+        piProvider: this.config.piProvider,
+        piModel: this.config.piModel,
+        piApiKey: this.config.piApiKey,
+        piThinking: this.config.piThinking,
       });
       const answer = await agent.prompt(text.replace(/^\/bigent\s*/i, "").trim() || text);
       await this.sendMessage(chatId, answer || "Done.");
