@@ -1,0 +1,33 @@
+{
+  "name": "bigent",
+  "version": "0.1.0",
+  "description": "BIgent: Behzat Industries Agent, a minimal Telegram-first agent built on Pi.",
+  "type": "module",
+  "bin": {
+    "bigent": "./dist/cli.js"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "check": "tsc -p tsconfig.json --noEmit",
+    "start": "node dist/cli.js",
+    "dev": "tsx src/cli.ts",
+    "update-pi": "npm install @earendil-works/pi-coding-agent@latest @earendil-works/pi-ai@latest && npm run build"
+  },
+  "dependencies": {
+    "@earendil-works/pi-ai": "^0.78.1",
+    "@earendil-works/pi-coding-agent": "^0.78.1",
+    "typebox": "^1.1.38"
+  },
+  "devDependencies": {
+    "@types/node": "^25.9.2",
+    "tsx": "^4.20.5",
+    "typescript": "^5.9.3"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}

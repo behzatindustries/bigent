@@ -1,0 +1,6 @@
+node_modules/
+dist/
+.env
+.bigent/
+npm-debug.log*
+*.tgz
