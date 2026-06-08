@@ -93,8 +93,8 @@ write_env() {
     printf "BIGENT_TELEGRAM_ALLOWLIST='%s'\n" "$(env_quote "$BIGENT_TELEGRAM_ALLOWLIST_VALUE")"
     printf "BIGENT_CWD='%s'\n" "$(env_quote "$BIGENT_CWD_VALUE")"
     printf "BIGENT_HOME='%s'\n" "$(env_quote "$BIGENT_HOME_VALUE")"
-    printf "BIGENT_PI_PROVIDER='%s'\n" "$(env_quote "$BIGENT_PI_PROVIDER_VALUE")"
-    printf "BIGENT_PI_MODEL='%s'\n" "$(env_quote "$BIGENT_PI_MODEL_VALUE")"
+    printf "BIGENT_PI_PROVIDER=''\n"
+    printf "BIGENT_PI_MODEL=''\n"
     printf "BIGENT_PI_API_KEY='%s'\n" "$(env_quote "$BIGENT_PI_API_KEY_VALUE")"
     printf "BIGENT_PI_THINKING='%s'\n" "$(env_quote "$BIGENT_PI_THINKING_VALUE")"
   } >"$ENV_FILE"
@@ -128,8 +128,10 @@ EOF
 
 echo ""
 echo "BIgent setup"
+echo "BIgent uses Pi's default provider/model selection."
+echo "Change provider/model later with Pi itself, or use BIgent Telegram /model commands."
 if [ ! -r /dev/tty ]; then
-  echo "No TTY detected, skipping interactive Telegram/model setup."
+  echo "No TTY detected, skipping interactive Telegram setup."
   echo "Run manually later: $BIN_PATH help"
 else
   TELEGRAM_BOT_TOKEN_VALUE="$(prompt_secret "Telegram bot token (leave blank to skip)")"
@@ -140,10 +142,9 @@ else
   done
   BIGENT_CWD_VALUE="$(prompt "BIgent working directory" "$HOME")"
   BIGENT_HOME_VALUE="$(prompt "BIgent state directory" "$HOME/.bigent")"
-  BIGENT_PI_PROVIDER_VALUE="$(prompt "Pi provider" "anthropic")"
-  BIGENT_PI_MODEL_VALUE="$(prompt "Pi model" "claude-sonnet-4-5")"
+  echo "Provider/model are not asked here; Pi handles that via its own agent/model selection."
   BIGENT_PI_API_KEY_VALUE="$(prompt_secret "Pi provider API key (leave blank to use existing Pi/env auth)")"
-  BIGENT_PI_THINKING_VALUE="$(prompt "Pi thinking level" "medium")"
+  BIGENT_PI_THINKING_VALUE="$(prompt "Pi thinking level (blank uses Pi default)" "")"
   write_env
   echo "Wrote config: $ENV_FILE"
 
@@ -166,3 +167,4 @@ fi
 echo "BIgent installed: $BIN_PATH"
 echo "Run: bigent help"
 echo "Update BIgent and Pi later with: bigent update"
+echo "Uninstall later with: bigent uninstall"

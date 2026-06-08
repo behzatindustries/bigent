@@ -40,12 +40,12 @@ The installer asks for:
 - Telegram allowlist user/chat ID, required so only that Telegram user/chat can talk to BIgent. Use a helper like `@userinfobot` if you do not know your ID.
 - BIgent working directory
 - BIgent state directory
-- Pi provider
-- Pi model
 - Pi provider API key
-- Pi thinking level
+- Pi thinking level, optional
 
 It writes those settings to `~/.config/bigent/bigent.env`.
+
+BIgent uses Pi's default provider/model selection by default. Choose or change provider/model through Pi itself, or use BIgent's Telegram `/model` commands when you need a chat-specific override.
 
 ## Telegram
 
@@ -80,8 +80,8 @@ Useful environment:
 
 - `BIGENT_CWD`: working directory Pi should operate in. Defaults to the current directory.
 - `BIGENT_HOME`: BIgent state, auth, models, and sessions directory. Defaults to `~/.bigent`.
-- `BIGENT_PI_PROVIDER`: Pi provider, for example `anthropic`.
-- `BIGENT_PI_MODEL`: Pi model, for example `claude-sonnet-4-5`.
+- `BIGENT_PI_PROVIDER`: optional Pi provider override. Blank uses Pi default.
+- `BIGENT_PI_MODEL`: optional Pi model override. Blank uses Pi default.
 - `BIGENT_PI_API_KEY`: Runtime API key for the selected provider.
 - `BIGENT_PI_THINKING`: `off`, `minimal`, `low`, `medium`, `high`, or `xhigh`.
 
@@ -132,6 +132,15 @@ bigent update-pi --commit
 ```
 
 `bigent update` pulls the latest BIgent source from GitHub, updates the Pi SDK packages, and rebuilds. `bigent update-pi` only updates `@earendil-works/pi-coding-agent` and `@earendil-works/pi-ai`; with `--commit`, it also commits `package.json` and `package-lock.json`.
+
+## Uninstall
+
+```sh
+bigent uninstall
+bigent uninstall --purge
+```
+
+`bigent uninstall` stops/disables the user service, removes the service file, removes the `bigent` command link, and removes the install directory. `--purge` also removes `~/.config/bigent` and `~/.bigent`.
 
 ## behzat.org Installer
 

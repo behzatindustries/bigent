@@ -4,6 +4,7 @@ import { loadConfig } from "./config.js";
 import { TelegramBridge } from "./telegram.js";
 import { runServiceAction, serviceLogs } from "./service.js";
 import { updateAgentAndPi, updatePiDependency } from "./update-pi.js";
+import { uninstallBigent } from "./uninstall.js";
 import { webSearch } from "./tools.js";
 
 const HELP = `BIgent - Behzat Industries Agent
@@ -15,6 +16,7 @@ Usage:
   bigent service <action>      Manage user systemd Telegram service
   bigent update                Update BIgent source and Pi SDK
   bigent update-pi [--commit]  One-click update to the latest Pi SDK
+  bigent uninstall [--purge]   Remove BIgent install, service, and optionally config/state
   bigent help                  Show this help
 
 Environment:
@@ -22,8 +24,8 @@ Environment:
   BIGENT_TELEGRAM_ALLOWLIST    Comma-separated allowed user/chat IDs
   BIGENT_CWD                   Optional working directory for Pi sessions
   BIGENT_HOME                  Optional BIgent state dir, defaults to ~/.bigent
-  BIGENT_PI_PROVIDER           Optional Pi provider, for example anthropic
-  BIGENT_PI_MODEL              Optional Pi model, for example claude-sonnet-4-5
+  BIGENT_PI_PROVIDER           Optional Pi provider override
+  BIGENT_PI_MODEL              Optional Pi model override
   BIGENT_PI_API_KEY            Optional runtime API key for the selected provider
   BIGENT_PI_THINKING           Optional: off, minimal, low, medium, high, xhigh
 
@@ -112,6 +114,19 @@ async function main(): Promise<void> {
       throw new Error(`Unsupported update option: ${args.join(", ")}`);
     }
     updateAgentAndPi();
+    return;
+  }
+
+  if (command === "uninstall") {
+    if (args.includes("--help") || args.includes("-h")) {
+      console.log("Usage: bigent uninstall [--purge]");
+      return;
+    }
+    const unsupported = args.filter((arg) => arg !== "--purge");
+    if (unsupported.length > 0) {
+      throw new Error(`Unsupported uninstall option: ${unsupported.join(", ")}`);
+    }
+    console.log(await uninstallBigent({ purge: args.includes("--purge") }));
     return;
   }
 
