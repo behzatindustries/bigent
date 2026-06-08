@@ -41,6 +41,7 @@ The installer asks for:
 - BIgent working directory
 - BIgent state directory
 - Pi provider API key
+- Provider id for that API key, if an API key is entered
 - Pi thinking level, optional
 
 It writes those settings to `~/.config/bigent/bigent.env`.
@@ -82,7 +83,8 @@ Useful environment:
 - `BIGENT_HOME`: BIgent state, auth, models, and sessions directory. Defaults to `~/.bigent`.
 - `BIGENT_PI_PROVIDER`: optional Pi provider override. Blank uses Pi default.
 - `BIGENT_PI_MODEL`: optional Pi model override. Blank uses Pi default.
-- `BIGENT_PI_API_KEY`: Runtime API key for the selected provider.
+- `BIGENT_PI_API_PROVIDER`: provider id for `BIGENT_PI_API_KEY`, for example `xiaomi-token-plan-sgp`.
+- `BIGENT_PI_API_KEY`: Runtime API key for `BIGENT_PI_API_PROVIDER`.
 - `BIGENT_PI_THINKING`: `off`, `minimal`, `low`, `medium`, `high`, or `xhigh`.
 
 ## Tools
@@ -117,7 +119,7 @@ BIgent adds three minimal custom tools:
 - `/models [provider]`: list known models
 - `/provider [id|clear]`: manage provider
 - `/thinking [level|clear]`: manage thinking level
-- `/apikey status|set|clear`: manage chat API key override
+- `/apikey status|set|provider|clear`: manage chat API key override
 - `/service start|stop|restart|status|logs|enable|disable`: manage user service
 - `/stop`: stop the Telegram service
 

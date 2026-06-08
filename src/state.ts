@@ -7,6 +7,7 @@ export type ChatState = {
   sessions: string[];
   piProvider?: string;
   piModel?: string;
+  piApiProvider?: string;
   piApiKey?: string;
   piThinking?: BigentThinkingLevel;
 };

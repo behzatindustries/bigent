@@ -80,13 +80,14 @@ export class TelegramBridge {
         sessionScope: this.sessionScope(chatId, chat.activeSession),
         piProvider: chat.piProvider ?? this.config.piProvider,
         piModel: chat.piModel ?? this.config.piModel,
+        piApiProvider: chat.piApiProvider ?? this.config.piApiProvider,
         piApiKey: chat.piApiKey ?? this.config.piApiKey,
         piThinking: chat.piThinking ?? this.config.piThinking,
       });
       const answer = await agent.prompt(text.replace(/^\/bigent\s*/i, "").trim() || text);
       await this.sendMessage(chatId, answer || "Done.");
     } catch (error) {
-      await this.sendMessage(chatId, `Error: ${error instanceof Error ? error.message : String(error)}`);
+      await this.sendMessage(chatId, this.renderError(error));
     }
   }
 
@@ -150,7 +151,7 @@ export class TelegramBridge {
       }
       await this.sendMessage(chatId, `Unknown command: ${rawCommand}\n\n${HELP_TEXT}`);
     } catch (error) {
-      await this.sendMessage(chatId, `Error: ${error instanceof Error ? error.message : String(error)}`);
+      await this.sendMessage(chatId, this.renderError(error));
     }
   }
 
@@ -231,26 +232,45 @@ export class TelegramBridge {
     const [action, ...rest] = args;
     if (!action || action === "status") {
       const chat = await this.state.getChat(chatId);
-      await this.sendMessage(chatId, `API key: ${chat.piApiKey || this.config.piApiKey ? "configured" : "not configured"}`);
+      const provider = chat.piApiProvider ?? this.config.piApiProvider ?? chat.piProvider ?? this.config.piProvider ?? "not set";
+      await this.sendMessage(
+        chatId,
+        `API key: ${chat.piApiKey || this.config.piApiKey ? "configured" : "not configured"}\nAPI provider: ${provider}`,
+      );
       return;
     }
     if (action === "clear") {
       await this.state.updateChat(chatId, (chat) => {
+        delete chat.piApiProvider;
         delete chat.piApiKey;
       });
       await this.sendMessage(chatId, "API key override cleared.");
       return;
     }
     if (action === "set") {
-      const key = rest.join(" ").trim();
-      if (!key) throw new Error("Usage: /apikey set <key>");
+      const [provider, ...keyParts] = rest;
+      const key = keyParts.join(" ").trim();
+      if (!provider || !key) throw new Error("Usage: /apikey set <provider> <key>");
       await this.state.updateChat(chatId, (chat) => {
+        chat.piApiProvider = provider;
         chat.piApiKey = key;
       });
-      await this.sendMessage(chatId, "API key override saved for this chat. Delete the Telegram message containing the key.");
+      await this.sendMessage(
+        chatId,
+        `API key override saved for provider: ${provider}\nDelete the Telegram message containing the key.`,
+      );
       return;
     }
-    throw new Error("Usage: /apikey status | /apikey set <key> | /apikey clear");
+    if (action === "provider") {
+      const provider = rest[0];
+      if (!provider) throw new Error("Usage: /apikey provider <provider>");
+      await this.state.updateChat(chatId, (chat) => {
+        chat.piApiProvider = provider;
+      });
+      await this.sendMessage(chatId, `API provider set: ${provider}`);
+      return;
+    }
+    throw new Error("Usage: /apikey status | /apikey set <provider> <key> | /apikey provider <provider> | /apikey clear");
   }
 
   private async handleServiceCommand(chatId: string, args: string[]): Promise<void> {
@@ -294,6 +314,7 @@ export class TelegramBridge {
       `cwd: ${this.config.cwd}`,
       `provider: ${chat.piProvider ?? this.config.piProvider ?? "Pi default"}`,
       `model: ${chat.piModel ?? this.config.piModel ?? "Pi default"}`,
+      `api provider: ${chat.piApiProvider ?? this.config.piApiProvider ?? chat.piProvider ?? this.config.piProvider ?? "not set"}`,
       `thinking: ${chat.piThinking ?? this.config.piThinking ?? "Pi default"}`,
       `api key: ${chat.piApiKey || this.config.piApiKey ? "configured" : "not configured"}`,
     ].join("\n");
@@ -325,6 +346,24 @@ export class TelegramBridge {
 
   private sessionScope(chatId: string, sessionId: string): string {
     return `telegram-${chatId}-${sessionId}`;
+  }
+
+  private renderError(error: unknown): string {
+    const message = error instanceof Error ? error.message : String(error);
+    const provider = message.match(/No API key found for ([^\s.]+)/)?.[1];
+    if (!provider) return `Error: ${message}`;
+    return [
+      `Error: ${message}`,
+      "",
+      `BIgent needs the API key provider set separately. Try:`,
+      `/apikey set ${provider} <your-api-key>`,
+      "",
+      `Or set these in ~/.config/bigent/bigent.env:`,
+      `BIGENT_PI_API_PROVIDER='${provider}'`,
+      `BIGENT_PI_API_KEY='<your-api-key>'`,
+      "",
+      `Then restart: /service restart`,
+    ].join("\n");
   }
 
   private isAllowed(chatId: string, fromId: string): boolean {
@@ -389,7 +428,8 @@ const HELP_TEXT = `BIgent commands
 /provider [id|clear] - show/set/clear provider
 /thinking [level|clear] - show/set/clear thinking
 /apikey status - show key status
-/apikey set <key> - save chat key override
+/apikey set <provider> <key> - save chat key override
+/apikey provider <provider> - set key provider
 /apikey clear - clear chat key override
 /service status - user service status
 /service start|stop|restart|enable|disable|logs

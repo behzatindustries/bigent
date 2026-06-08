@@ -95,6 +95,7 @@ write_env() {
     printf "BIGENT_HOME='%s'\n" "$(env_quote "$BIGENT_HOME_VALUE")"
     printf "BIGENT_PI_PROVIDER=''\n"
     printf "BIGENT_PI_MODEL=''\n"
+    printf "BIGENT_PI_API_PROVIDER='%s'\n" "$(env_quote "$BIGENT_PI_API_PROVIDER_VALUE")"
     printf "BIGENT_PI_API_KEY='%s'\n" "$(env_quote "$BIGENT_PI_API_KEY_VALUE")"
     printf "BIGENT_PI_THINKING='%s'\n" "$(env_quote "$BIGENT_PI_THINKING_VALUE")"
   } >"$ENV_FILE"
@@ -144,6 +145,10 @@ else
   BIGENT_HOME_VALUE="$(prompt "BIgent state directory" "$HOME/.bigent")"
   echo "Provider/model are not asked here; Pi handles that via its own agent/model selection."
   BIGENT_PI_API_KEY_VALUE="$(prompt_secret "Pi provider API key (leave blank to use existing Pi/env auth)")"
+  BIGENT_PI_API_PROVIDER_VALUE=""
+  if [ "$BIGENT_PI_API_KEY_VALUE" ]; then
+    BIGENT_PI_API_PROVIDER_VALUE="$(prompt "Provider id for that API key" "xiaomi-token-plan-sgp")"
+  fi
   BIGENT_PI_THINKING_VALUE="$(prompt "Pi thinking level (blank uses Pi default)" "")"
   write_env
   echo "Wrote config: $ENV_FILE"

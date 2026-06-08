@@ -29,6 +29,7 @@ export type BigentAgentOptions = {
   sessionScope?: string;
   piProvider?: string;
   piModel?: string;
+  piApiProvider?: string;
   piApiKey?: string;
   piThinking?: BigentThinkingLevel;
   allowSubagents?: boolean;
@@ -40,6 +41,7 @@ export class BigentAgent {
   private readonly sessionScope: string;
   private readonly piProvider?: string;
   private readonly piModel?: string;
+  private readonly piApiProvider?: string;
   private readonly piApiKey?: string;
   private readonly piThinking?: BigentThinkingLevel;
   private readonly allowSubagents: boolean;
@@ -50,6 +52,7 @@ export class BigentAgent {
     this.sessionScope = options.sessionScope ?? "cli";
     this.piProvider = options.piProvider;
     this.piModel = options.piModel;
+    this.piApiProvider = options.piApiProvider;
     this.piApiKey = options.piApiKey;
     this.piThinking = options.piThinking;
     this.allowSubagents = options.allowSubagents ?? true;
@@ -64,8 +67,9 @@ export class BigentAgent {
 
     const authStorage = AuthStorage.create(authPath);
     const modelRegistry = ModelRegistry.create(authStorage, modelsPath);
-    if (this.piProvider && this.piApiKey) {
-      authStorage.setRuntimeApiKey(this.piProvider, this.piApiKey);
+    const apiProvider = this.piApiProvider ?? this.piProvider;
+    if (apiProvider && this.piApiKey) {
+      authStorage.setRuntimeApiKey(apiProvider, this.piApiKey);
     }
     const model = this.resolveConfiguredModel(modelRegistry);
     const loader = new DefaultResourceLoader({
@@ -133,6 +137,7 @@ export class BigentAgent {
           sessionScope: `subagent-${scope}-${Date.now()}`,
           piProvider: this.piProvider,
           piModel: this.piModel,
+          piApiProvider: this.piApiProvider,
           piApiKey: this.piApiKey,
           piThinking: this.piThinking,
           allowSubagents: false,

@@ -26,6 +26,7 @@ Environment:
   BIGENT_HOME                  Optional BIgent state dir, defaults to ~/.bigent
   BIGENT_PI_PROVIDER           Optional Pi provider override
   BIGENT_PI_MODEL              Optional Pi model override
+  BIGENT_PI_API_PROVIDER       Optional provider id for BIGENT_PI_API_KEY
   BIGENT_PI_API_KEY            Optional runtime API key for the selected provider
   BIGENT_PI_THINKING           Optional: off, minimal, low, medium, high, xhigh
 
@@ -52,6 +53,7 @@ async function main(): Promise<void> {
       cwd: config.cwd,
       piProvider: config.piProvider,
       piModel: config.piModel,
+      piApiProvider: config.piApiProvider,
       piApiKey: config.piApiKey,
       piThinking: config.piThinking,
     });

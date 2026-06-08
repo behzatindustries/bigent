@@ -8,6 +8,7 @@ export type BigentConfig = {
   telegramAllowlist: Set<string>;
   piProvider?: string;
   piModel?: string;
+  piApiProvider?: string;
   piApiKey?: string;
   piThinking?: BigentThinkingLevel;
 };
@@ -33,6 +34,7 @@ export function loadConfig(): BigentConfig {
     telegramAllowlist,
     piProvider: emptyToUndefined(process.env.BIGENT_PI_PROVIDER),
     piModel: emptyToUndefined(process.env.BIGENT_PI_MODEL),
+    piApiProvider: emptyToUndefined(process.env.BIGENT_PI_API_PROVIDER),
     piApiKey: emptyToUndefined(process.env.BIGENT_PI_API_KEY),
     piThinking: parseThinkingLevel(process.env.BIGENT_PI_THINKING),
   };
