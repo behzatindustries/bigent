@@ -79,6 +79,7 @@ export class TelegramBridge {
 
     await this.sendChatAction(chatId, "typing");
     try {
+      const progressMessageId = await this.sendProgressMessage(chatId, "Working...");
       const chat = await this.state.getChat(chatId);
       const agent = new BigentAgent({
         homeDir: this.config.homeDir,
@@ -88,7 +89,26 @@ export class TelegramBridge {
         piApiKey: chat.piApiKey ?? this.config.piApiKey,
         piThinking: chat.piThinking ?? this.config.piThinking,
       });
-      const answer = await agent.prompt(text.replace(/^\/bigent\s*/i, "").trim() || text);
+      const answer = await agent.prompt(text.replace(/^\/bigent\s*/i, "").trim() || text, {
+        onEvent: async (event) => {
+          if (event.type === "tool_execution_start" && typeof event.toolName === "string") {
+            await this.editMessage(chatId, progressMessageId, `Working: tool ${event.toolName} started`);
+            return;
+          }
+          if (event.type === "tool_execution_update" && typeof event.toolName === "string") {
+            await this.editMessage(chatId, progressMessageId, `Working: tool ${event.toolName} running`);
+            return;
+          }
+          if (event.type === "tool_execution_end" && typeof event.toolName === "string") {
+            await this.editMessage(chatId, progressMessageId, `Working: tool ${event.toolName} ${event.isError ? "failed" : "done"}`);
+            return;
+          }
+          if (event.type === "message_update" && event.assistantMessageEvent?.type === "text_delta") {
+            await this.editMessage(chatId, progressMessageId, "Working: writing response");
+          }
+        },
+      });
+      await this.editMessage(chatId, progressMessageId, "Done.");
       await this.sendMessage(chatId, answer || "Done.");
     } catch (error) {
       await this.sendMessage(chatId, this.renderError(error));
@@ -157,7 +177,15 @@ export class TelegramBridge {
             }
           },
         });
-        await this.deleteMessage(chatId, progressMessageId);
+        await this.editMessage(
+          chatId,
+          progressMessageId,
+          result.status === "done"
+            ? `Loop done in ${result.turns} turn${result.turns === 1 ? "" : "s"}`
+            : result.status === "blocked"
+              ? `Loop blocked after ${result.turns} turn${result.turns === 1 ? "" : "s"}`
+              : `Loop stopped after ${result.turns} turn${result.turns === 1 ? "" : "s"}`,
+        );
         await this.sendMessage(chatId, result.answer || "Done.");
         return;
       }
@@ -403,12 +431,13 @@ export class TelegramBridge {
   }
 
   private async sendMessage(chatId: string, text: string): Promise<void> {
-    const chunks = chunkText(text, 3900);
+    const chunks = chunkTelegramText(text, 3600);
     for (const chunk of chunks) {
       await this.call("sendMessage", {
         chat_id: chatId,
-        text: chunk,
+        text: formatTelegramText(chunk),
         disable_web_page_preview: true,
+        parse_mode: "HTML",
       });
     }
   }
@@ -420,8 +449,9 @@ export class TelegramBridge {
   private async sendProgressMessage(chatId: string, text: string): Promise<number> {
     return this.call<{ message_id: number }>("sendMessage", {
       chat_id: chatId,
-      text,
+      text: formatTelegramText(text),
       disable_web_page_preview: true,
+      parse_mode: "HTML",
     }).then((result) => result.message_id);
   }
 
@@ -429,8 +459,9 @@ export class TelegramBridge {
     await this.call("editMessageText", {
       chat_id: chatId,
       message_id: messageId,
-      text,
+      text: formatTelegramText(text),
       disable_web_page_preview: true,
+      parse_mode: "HTML",
     });
   }
 
@@ -502,17 +533,125 @@ function normalizeCommand(rawCommand: string, args: string[]): string {
   return rawCommand.toLowerCase();
 }
 
-function chunkText(text: string, maxLength: number): string[] {
-  const chunks: string[] = [];
-  let remaining = text;
-  while (remaining.length > maxLength) {
-    chunks.push(remaining.slice(0, maxLength));
-    remaining = remaining.slice(maxLength);
-  }
-  chunks.push(remaining);
-  return chunks;
-}
-
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function chunkTelegramText(text: string, maxLength: number): string[] {
+  const normalized = text.replace(/\r\n/g, "\n");
+  const lines = normalized.split("\n");
+  const chunks: string[] = [];
+  let current = "";
+
+  for (const line of lines) {
+    const next = current ? `${current}\n${line}` : line;
+    if (next.length <= maxLength) {
+      current = next;
+      continue;
+    }
+
+    if (current) {
+      chunks.push(current);
+      current = "";
+    }
+
+    if (line.length <= maxLength) {
+      current = line;
+      continue;
+    }
+
+    for (let index = 0; index < line.length; index += maxLength) {
+      chunks.push(line.slice(index, index + maxLength));
+    }
+  }
+
+  if (current) chunks.push(current);
+  return chunks.length ? chunks : [""];
+}
+
+function formatTelegramText(text: string): string {
+  const normalized = text.replace(/\r\n/g, "\n");
+  const lines = normalized.split("\n");
+  const rendered: string[] = [];
+  let codeBlock: string[] | null = null;
+  let tableBlock: string[] = [];
+
+  const flushTable = (): void => {
+    if (!tableBlock.length) return;
+    rendered.push(`<pre>${escapeHtml(tableBlock.join("\n"))}</pre>`);
+    tableBlock = [];
+  };
+
+  for (const line of lines) {
+    const fence = line.match(/^```(?:[a-z0-9]+)?\s*$/i);
+    if (fence) {
+      if (codeBlock) {
+        rendered.push(`<pre><code>${escapeHtml(codeBlock.join("\n"))}</code></pre>`);
+        codeBlock = null;
+      } else {
+        flushTable();
+        codeBlock = [];
+      }
+      continue;
+    }
+
+    if (codeBlock) {
+      codeBlock.push(line);
+      continue;
+    }
+
+    if (isTableLine(line)) {
+      tableBlock.push(line);
+      continue;
+    }
+
+    flushTable();
+    rendered.push(renderInlineMarkdown(line));
+  }
+
+  flushTable();
+  if (codeBlock) {
+    rendered.push(`<pre><code>${escapeHtml(codeBlock.join("\n"))}</code></pre>`);
+  }
+
+  return rendered.join("\n");
+}
+
+function isTableLine(line: string): boolean {
+  return /^\s*\|/.test(line) || /\|/.test(line);
+}
+
+function renderInlineMarkdown(line: string): string {
+  if (!line.trim()) return "";
+  let text = line;
+  const placeholders: string[] = [];
+  const stash = (html: string): string => {
+    const token = `@@BIGENT_${placeholders.length}@@`;
+    placeholders.push(html);
+    return token;
+  };
+
+  text = text.replace(/\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g, (_match, label, url) => {
+    return stash(`<a href="${escapeAttribute(url)}">${escapeHtml(String(label))}</a>`);
+  });
+  text = text.replace(/`([^`]+)`/g, (_match, code) => stash(`<code>${escapeHtml(String(code))}</code>`));
+  text = text.replace(/\*\*([^*]+)\*\*/g, (_match, bold) => stash(`<b>${escapeHtml(String(bold))}</b>`));
+  text = text.replace(/__([^_]+)__/g, (_match, bold) => stash(`<b>${escapeHtml(String(bold))}</b>`));
+
+  let escaped = escapeHtml(text);
+  placeholders.forEach((html, index) => {
+    escaped = escaped.replace(`@@BIGENT_${index}@@`, html);
+  });
+  return escaped;
+}
+
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+}
+
+function escapeAttribute(value: string): string {
+  return escapeHtml(value).replace(/"/g, "&quot;");
 }
