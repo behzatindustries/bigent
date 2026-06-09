@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import { BigentAgent } from "./agent.js";
 import { loadConfig } from "./config.js";
+import { runLoopedPrompt } from "./loop.js";
 import { TelegramBridge } from "./telegram.js";
 import { runServiceAction, serviceLogs } from "./service.js";
 import { updateAgentAndPi, updatePiDependency } from "./update-pi.js";
@@ -11,6 +12,7 @@ const HELP = `BIgent - Behzat Industries Agent
 
 Usage:
   bigent ask <prompt...>       Run one prompt through Pi
+  bigent loop <prompt...>      Run a bounded agentic loop for larger tasks
   bigent search <query...>     Test BIgent web search directly
   bigent telegram              Run the Telegram bot bridge
   bigent service <action>      Manage user systemd Telegram service
@@ -59,6 +61,25 @@ async function main(): Promise<void> {
     });
     const answer = await agent.prompt(prompt);
     console.log(answer || "Done.");
+    return;
+  }
+
+  if (command === "loop") {
+    const prompt = args.join(" ").trim();
+    if (!prompt) {
+      throw new Error("Usage: bigent loop <prompt...>");
+    }
+    const agent = new BigentAgent({
+      homeDir: config.homeDir,
+      cwd: config.cwd,
+      piProvider: config.piProvider,
+      piModel: config.piModel,
+      piApiProvider: config.piApiProvider,
+      piApiKey: config.piApiKey,
+      piThinking: config.piThinking,
+    });
+    const result = await runLoopedPrompt(agent, prompt);
+    console.log(result.answer || "Done.");
     return;
   }
 

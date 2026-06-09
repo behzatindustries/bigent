@@ -3,6 +3,7 @@ import path from "node:path";
 import { AuthStorage, ModelRegistry } from "@earendil-works/pi-coding-agent";
 import { BigentAgent } from "./agent.js";
 import type { BigentConfig, BigentThinkingLevel } from "./config.js";
+import { runLoopedPrompt } from "./loop.js";
 import { runServiceAction, serviceLogs } from "./service.js";
 import { normalizeSessionId, StateStore, type ChatState } from "./state.js";
 
@@ -101,6 +102,25 @@ export class TelegramBridge {
       }
       if (command === "/status") {
         await this.sendMessage(chatId, await this.renderStatus(chatId));
+        return;
+      }
+      if (command === "/loop") {
+        const prompt = args.join(" ").trim();
+        if (!prompt) throw new Error("Usage: /loop <prompt...>");
+        await this.sendChatAction(chatId, "typing");
+        const chat = await this.state.getChat(chatId);
+        const agent = new BigentAgent({
+          homeDir: this.config.homeDir,
+          cwd: this.config.cwd,
+          sessionScope: this.sessionScope(chatId, chat.activeSession),
+          piProvider: chat.piProvider ?? this.config.piProvider,
+          piModel: chat.piModel ?? this.config.piModel,
+          piApiProvider: chat.piApiProvider ?? this.config.piApiProvider,
+          piApiKey: chat.piApiKey ?? this.config.piApiKey,
+          piThinking: chat.piThinking ?? this.config.piThinking,
+        });
+        const result = await runLoopedPrompt(agent, prompt);
+        await this.sendMessage(chatId, result.answer || "Done.");
         return;
       }
       if (command === "/new") {
@@ -431,6 +451,7 @@ export class TelegramBridge {
 const HELP_TEXT = `BIgent commands
 /help - show commands
 /status - show chat config
+/loop <prompt> - run bounded agentic loop
 /new [name] - start a new session
 /sessions - list sessions
 /session show - show active session

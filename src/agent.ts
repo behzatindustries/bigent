@@ -35,6 +35,10 @@ export type BigentAgentOptions = {
   allowSubagents?: boolean;
 };
 
+export type BigentPromptOptions = {
+  extraSystemPrompt?: string;
+};
+
 export class BigentAgent {
   private readonly homeDir: string;
   private readonly cwd: string;
@@ -58,7 +62,7 @@ export class BigentAgent {
     this.allowSubagents = options.allowSubagents ?? true;
   }
 
-  async prompt(text: string): Promise<string> {
+  async prompt(text: string, options: BigentPromptOptions = {}): Promise<string> {
     await fs.mkdir(this.homeDir, { recursive: true });
     const authPath = path.join(this.homeDir, "auth.json");
     const modelsPath = path.join(this.homeDir, "models.json");
@@ -72,10 +76,11 @@ export class BigentAgent {
       authStorage.setRuntimeApiKey(apiProvider, apiKey);
     }
     const model = this.resolveConfiguredModel(modelRegistry);
+    const systemPrompt = [BIGENT_SYSTEM_PROMPT, options.extraSystemPrompt?.trim()].filter(Boolean).join("\n\n");
     const loader = new DefaultResourceLoader({
       cwd: this.cwd,
       agentDir: this.homeDir,
-      systemPromptOverride: () => BIGENT_SYSTEM_PROMPT,
+      systemPromptOverride: () => systemPrompt,
     });
     await loader.reload();
 

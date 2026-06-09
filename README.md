@@ -72,6 +72,7 @@ journalctl --user -u bigent-telegram.service -f
 
 ```sh
 bigent ask "inspect this repo and summarize the package"
+bigent loop "inspect this repo, propose the next missing safety fix, and apply it"
 bigent search "latest Pi coding agent"
 bigent service status
 bigent service restart
@@ -114,6 +115,7 @@ BIgent adds three minimal custom tools:
 - `/session use <id>`: switch session
 - `/session delete <id>`: delete a session
 - `/status`: show active config
+- `/loop <prompt>`: run a bounded agentic loop
 - `/model <provider> <model>`: set model
 - `/model clear`: clear model override
 - `/models [provider]`: list known models
