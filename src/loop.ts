@@ -2,6 +2,7 @@ import { BigentAgent } from "./agent.js";
 
 export type LoopRunOptions = {
   maxTurns?: number;
+  onProgress?: (event: LoopProgressEvent) => void | Promise<void>;
 };
 
 export type LoopRunResult = {
@@ -9,6 +10,14 @@ export type LoopRunResult = {
   turns: number;
   status: "done" | "blocked" | "stopped";
 };
+
+export type LoopProgressEvent =
+  | { stage: "start"; turn: number; maxTurns: number; prompt: string }
+  | { stage: "before_turn"; turn: number; maxTurns: number }
+  | { stage: "after_turn"; turn: number; maxTurns: number; status: "done" | "blocked" | "continue"; answer: string }
+  | { stage: "stopped"; turn: number; maxTurns: number; answer: string }
+  | { stage: "done"; turn: number; maxTurns: number; answer: string }
+  | { stage: "blocked"; turn: number; maxTurns: number; answer: string };
 
 const LOOP_SYSTEM_PROMPT = `Loop mode rules:
 - Treat the request as an executable work queue, not a one-shot chat reply.
@@ -23,21 +32,30 @@ const LOOP_SYSTEM_PROMPT = `Loop mode rules:
 
 export async function runLoopedPrompt(agent: BigentAgent, prompt: string, options: LoopRunOptions = {}): Promise<LoopRunResult> {
   const maxTurns = Math.max(1, options.maxTurns ?? 4);
+  const notify = async (event: LoopProgressEvent): Promise<void> => {
+    await options.onProgress?.(event);
+  };
   let currentPrompt = prompt;
   let lastAnswer = "";
   let turns = 0;
 
+  await notify({ stage: "start", turn: 0, maxTurns, prompt });
+
   for (let turn = 0; turn < maxTurns; turn += 1) {
     turns = turn + 1;
+    await notify({ stage: "before_turn", turn: turns, maxTurns });
     const response = await agent.prompt(currentPrompt, { extraSystemPrompt: LOOP_SYSTEM_PROMPT });
     const parsed = parseLoopResponse(response);
     lastAnswer = parsed.answer;
+    await notify({ stage: "after_turn", turn: turns, maxTurns, status: parsed.status === "continue" ? "continue" : parsed.status, answer: lastAnswer });
 
     if (parsed.status === "done") {
+      await notify({ stage: "done", turn: turns, maxTurns, answer: lastAnswer });
       return { answer: lastAnswer, turns, status: "done" };
     }
 
     if (parsed.status === "blocked") {
+      await notify({ stage: "blocked", turn: turns, maxTurns, answer: lastAnswer });
       return { answer: lastAnswer, turns, status: "blocked" };
     }
 
@@ -50,6 +68,7 @@ export async function runLoopedPrompt(agent: BigentAgent, prompt: string, option
     ].join("\n");
   }
 
+  await notify({ stage: "stopped", turn: turns, maxTurns, answer: lastAnswer });
   return { answer: lastAnswer, turns, status: "stopped" };
 }
 

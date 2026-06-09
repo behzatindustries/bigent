@@ -78,7 +78,23 @@ async function main(): Promise<void> {
       piApiKey: config.piApiKey,
       piThinking: config.piThinking,
     });
-    const result = await runLoopedPrompt(agent, prompt);
+    const result = await runLoopedPrompt(agent, prompt, {
+      onProgress: (event) => {
+        if (event.stage === "start") {
+          console.error(`loop start: 0/${event.maxTurns}`);
+          return;
+        }
+        if (event.stage === "before_turn") {
+          console.error(`loop turn ${event.turn}/${event.maxTurns}: thinking`);
+          return;
+        }
+        if (event.stage === "after_turn") {
+          console.error(`loop turn ${event.turn}/${event.maxTurns}: ${event.status}`);
+          return;
+        }
+        console.error(`loop ${event.stage}: ${event.turn}/${event.maxTurns}`);
+      },
+    });
     console.log(result.answer || "Done.");
     return;
   }

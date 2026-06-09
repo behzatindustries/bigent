@@ -108,6 +108,7 @@ export class TelegramBridge {
         const prompt = args.join(" ").trim();
         if (!prompt) throw new Error("Usage: /loop <prompt...>");
         await this.sendChatAction(chatId, "typing");
+        const progressMessageId = await this.sendProgressMessage(chatId, "Loop started: 0/4");
         const chat = await this.state.getChat(chatId);
         const agent = new BigentAgent({
           homeDir: this.config.homeDir,
@@ -119,7 +120,30 @@ export class TelegramBridge {
           piApiKey: chat.piApiKey ?? this.config.piApiKey,
           piThinking: chat.piThinking ?? this.config.piThinking,
         });
-        const result = await runLoopedPrompt(agent, prompt);
+        const result = await runLoopedPrompt(agent, prompt, {
+          onProgress: async (event) => {
+            if (event.stage === "before_turn") {
+              await this.editMessage(chatId, progressMessageId, `Loop turn ${event.turn}/${event.maxTurns} running...`);
+              return;
+            }
+            if (event.stage === "after_turn") {
+              await this.editMessage(chatId, progressMessageId, `Loop turn ${event.turn}/${event.maxTurns}: ${event.status}`);
+              return;
+            }
+            if (event.stage === "blocked") {
+              await this.editMessage(chatId, progressMessageId, `Loop blocked at ${event.turn}/${event.maxTurns}`);
+              return;
+            }
+            if (event.stage === "stopped") {
+              await this.editMessage(chatId, progressMessageId, `Loop stopped at ${event.turn}/${event.maxTurns}`);
+              return;
+            }
+            if (event.stage === "done") {
+              await this.editMessage(chatId, progressMessageId, `Loop done at ${event.turn}/${event.maxTurns}`);
+            }
+          },
+        });
+        await this.deleteMessage(chatId, progressMessageId);
         await this.sendMessage(chatId, result.answer || "Done.");
         return;
       }
@@ -432,6 +456,30 @@ export class TelegramBridge {
 
   private async sendChatAction(chatId: string, action: string): Promise<void> {
     await this.call("sendChatAction", { chat_id: chatId, action });
+  }
+
+  private async sendProgressMessage(chatId: string, text: string): Promise<number> {
+    return this.call<{ message_id: number }>("sendMessage", {
+      chat_id: chatId,
+      text,
+      disable_web_page_preview: true,
+    }).then((result) => result.message_id);
+  }
+
+  private async editMessage(chatId: string, messageId: number, text: string): Promise<void> {
+    await this.call("editMessageText", {
+      chat_id: chatId,
+      message_id: messageId,
+      text,
+      disable_web_page_preview: true,
+    });
+  }
+
+  private async deleteMessage(chatId: string, messageId: number): Promise<void> {
+    await this.call("deleteMessage", {
+      chat_id: chatId,
+      message_id: messageId,
+    });
   }
 
   private async call<T = unknown>(method: string, body: unknown): Promise<T> {
