@@ -43,12 +43,17 @@ export class TelegramBridge {
   async run(): Promise<void> {
     console.log("BIgent Telegram bridge is running.");
     for (;;) {
-      const updates = await this.getUpdates();
-      for (const update of updates) {
-        this.offset = update.update_id + 1;
-        if (update.message?.text) {
-          await this.handleMessage(update.message);
+      try {
+        const updates = await this.getUpdates();
+        for (const update of updates) {
+          this.offset = update.update_id + 1;
+          if (update.message?.text) {
+            await this.handleMessage(update.message);
+          }
         }
+      } catch (error) {
+        console.error(`Telegram poll error: ${error instanceof Error ? error.message : String(error)}`);
+        await sleep(5000);
       }
     }
   }
@@ -376,12 +381,13 @@ export class TelegramBridge {
   }
 
   private async getUpdates(): Promise<TelegramUpdate[]> {
-    const response = await this.call<TelegramUpdate[]>("getUpdates", {
-      timeout: 45,
-      offset: this.offset,
-      allowed_updates: ["message"],
-    });
-    return response;
+    return this.retry(() =>
+      this.call<TelegramUpdate[]>("getUpdates", {
+        timeout: 45,
+        offset: this.offset,
+        allowed_updates: ["message"],
+      }),
+    );
   }
 
   private async sendMessage(chatId: string, text: string): Promise<void> {
@@ -424,16 +430,31 @@ export class TelegramBridge {
   }
 
   private async call<T = unknown>(method: string, body: unknown): Promise<T> {
-    const response = await fetch(`https://api.telegram.org/bot${this.token}/${method}`, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify(body),
+    return this.retry(async () => {
+      const response = await fetch(`https://api.telegram.org/bot${this.token}/${method}`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      const payload = (await response.json()) as TelegramResponse<T>;
+      if (!response.ok || !payload.ok) {
+        throw new Error(payload.description ?? `Telegram API failed: ${response.status}`);
+      }
+      return payload.result;
     });
-    const payload = (await response.json()) as TelegramResponse<T>;
-    if (!response.ok || !payload.ok) {
-      throw new Error(payload.description ?? `Telegram API failed: ${response.status}`);
+  }
+
+  private async retry<T>(fn: () => Promise<T>): Promise<T> {
+    let lastError: unknown;
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      try {
+        return await fn();
+      } catch (error) {
+        lastError = error;
+        await sleep(1000 * (attempt + 1));
+      }
     }
-    return payload.result;
+    throw lastError instanceof Error ? lastError : new Error(String(lastError));
   }
 }
 
@@ -478,4 +499,8 @@ function chunkText(text: string, maxLength: number): string[] {
   }
   chunks.push(remaining);
   return chunks;
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
