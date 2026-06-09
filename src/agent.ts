@@ -21,6 +21,9 @@ type AgentEvent = {
     type?: string;
     delta?: string;
   };
+  toolName?: string;
+  partialResult?: unknown;
+  isError?: boolean;
 };
 
 export type BigentAgentOptions = {
@@ -35,6 +38,7 @@ export type BigentAgentOptions = {
 
 export type BigentPromptOptions = {
   extraSystemPrompt?: string;
+  onEvent?: (event: AgentEvent) => void | Promise<void>;
 };
 
 export class BigentAgent {
@@ -101,6 +105,7 @@ export class BigentAgent {
         const finalText = extractLastAssistantText(event.messages);
         if (finalText) output = finalText;
       }
+      void options.onEvent?.(event);
     });
 
     try {

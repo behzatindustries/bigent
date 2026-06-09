@@ -128,6 +128,18 @@ export class TelegramBridge {
               await this.editMessage(chatId, progressMessageId, `Loop turn ${event.turn}/${event.maxTurns} running...`);
               return;
             }
+            if (event.stage === "tool_start") {
+              await this.editMessage(chatId, progressMessageId, `Loop turn ${event.turn}/${event.maxTurns}: tool ${event.tool} started`);
+              return;
+            }
+            if (event.stage === "tool_update") {
+              await this.editMessage(chatId, progressMessageId, `Loop turn ${event.turn}/${event.maxTurns}: tool ${event.tool} ${event.status}`);
+              return;
+            }
+            if (event.stage === "tool_end") {
+              await this.editMessage(chatId, progressMessageId, `Loop turn ${event.turn}/${event.maxTurns}: tool ${event.tool} ${event.status}`);
+              return;
+            }
             if (event.stage === "after_turn") {
               await this.editMessage(chatId, progressMessageId, `Loop turn ${event.turn}/${event.maxTurns}: ${event.status}`);
               return;

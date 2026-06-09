@@ -14,6 +14,9 @@ export type LoopRunResult = {
 export type LoopProgressEvent =
   | { stage: "start"; turn: number; maxTurns: number; prompt: string }
   | { stage: "before_turn"; turn: number; maxTurns: number }
+  | { stage: "tool_start"; turn: number; maxTurns: number; tool: string }
+  | { stage: "tool_update"; turn: number; maxTurns: number; tool: string; status: string }
+  | { stage: "tool_end"; turn: number; maxTurns: number; tool: string; status: string }
   | { stage: "after_turn"; turn: number; maxTurns: number; status: "done" | "blocked" | "continue"; answer: string }
   | { stage: "stopped"; turn: number; maxTurns: number; answer: string }
   | { stage: "done"; turn: number; maxTurns: number; answer: string }
@@ -44,7 +47,27 @@ export async function runLoopedPrompt(agent: BigentAgent, prompt: string, option
   for (let turn = 0; turn < maxTurns; turn += 1) {
     turns = turn + 1;
     await notify({ stage: "before_turn", turn: turns, maxTurns });
-    const response = await agent.prompt(currentPrompt, { extraSystemPrompt: LOOP_SYSTEM_PROMPT });
+    const response = await agent.prompt(currentPrompt, {
+      extraSystemPrompt: LOOP_SYSTEM_PROMPT,
+      onEvent: async (event) => {
+        if (event.type === "tool_execution_start" && typeof event.toolName === "string") {
+          await notify({ stage: "tool_start", turn: turns, maxTurns, tool: event.toolName });
+        }
+        if (event.type === "tool_execution_update" && typeof event.toolName === "string") {
+          const status = event.partialResult ? "working" : "running";
+          await notify({ stage: "tool_update", turn: turns, maxTurns, tool: event.toolName, status });
+        }
+        if (event.type === "tool_execution_end" && typeof event.toolName === "string") {
+          await notify({
+            stage: "tool_end",
+            turn: turns,
+            maxTurns,
+            tool: event.toolName,
+            status: event.isError ? "error" : "ok",
+          });
+        }
+      },
+    });
     const parsed = parseLoopResponse(response);
     lastAnswer = parsed.answer;
     await notify({ stage: "after_turn", turn: turns, maxTurns, status: parsed.status === "continue" ? "continue" : parsed.status, answer: lastAnswer });

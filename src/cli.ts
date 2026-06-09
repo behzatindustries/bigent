@@ -84,6 +84,18 @@ async function main(): Promise<void> {
           console.error(`loop turn ${event.turn}/${event.maxTurns}: thinking`);
           return;
         }
+        if (event.stage === "tool_start") {
+          console.error(`loop turn ${event.turn}/${event.maxTurns}: tool ${event.tool} started`);
+          return;
+        }
+        if (event.stage === "tool_update") {
+          console.error(`loop turn ${event.turn}/${event.maxTurns}: tool ${event.tool} ${event.status}`);
+          return;
+        }
+        if (event.stage === "tool_end") {
+          console.error(`loop turn ${event.turn}/${event.maxTurns}: tool ${event.tool} ${event.status}`);
+          return;
+        }
         if (event.stage === "after_turn") {
           console.error(`loop turn ${event.turn}/${event.maxTurns}: ${event.status}`);
           return;
