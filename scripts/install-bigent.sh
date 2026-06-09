@@ -93,11 +93,10 @@ write_env() {
     printf "BIGENT_TELEGRAM_ALLOWLIST='%s'\n" "$(env_quote "$BIGENT_TELEGRAM_ALLOWLIST_VALUE")"
     printf "BIGENT_CWD='%s'\n" "$(env_quote "$BIGENT_CWD_VALUE")"
     printf "BIGENT_HOME='%s'\n" "$(env_quote "$BIGENT_HOME_VALUE")"
-    printf "BIGENT_PI_PROVIDER=''\n"
-    printf "BIGENT_PI_MODEL=''\n"
     printf "BIGENT_PI_API_PROVIDER='%s'\n" "$(env_quote "$BIGENT_PI_API_PROVIDER_VALUE")"
     printf "BIGENT_PI_API_KEY='%s'\n" "$(env_quote "$BIGENT_PI_API_KEY_VALUE")"
     printf "BIGENT_PI_THINKING='%s'\n" "$(env_quote "$BIGENT_PI_THINKING_VALUE")"
+    printf "BIGENT_LOOP_MAX_TURNS='%s'\n" "$(env_quote "$BIGENT_LOOP_MAX_TURNS_VALUE")"
   } >"$ENV_FILE"
   chmod 600 "$ENV_FILE"
 }
@@ -130,7 +129,7 @@ EOF
 echo ""
 echo "BIgent setup"
 echo "BIgent uses Pi's default provider/model selection."
-echo "Change provider/model later with Pi itself, or use BIgent Telegram /model commands."
+echo "Change provider/model later with Pi itself."
 if [ ! -r /dev/tty ]; then
   echo "No TTY detected, skipping interactive Telegram setup."
   echo "Run manually later: $BIN_PATH help"
@@ -150,6 +149,7 @@ else
     BIGENT_PI_API_PROVIDER_VALUE="$(prompt "Provider id for that API key" "xiaomi-token-plan-sgp")"
   fi
   BIGENT_PI_THINKING_VALUE="$(prompt "Pi thinking level (blank uses Pi default)" "")"
+  BIGENT_LOOP_MAX_TURNS_VALUE="$(prompt "Loop max turns (blank uses 30)" "30")"
   write_env
   echo "Wrote config: $ENV_FILE"
 

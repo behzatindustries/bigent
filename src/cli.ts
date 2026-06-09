@@ -26,11 +26,10 @@ Environment:
   BIGENT_TELEGRAM_ALLOWLIST    Comma-separated allowed user/chat IDs
   BIGENT_CWD                   Optional working directory for Pi sessions
   BIGENT_HOME                  Optional BIgent state dir, defaults to ~/.bigent
-  BIGENT_PI_PROVIDER           Optional Pi provider override
-  BIGENT_PI_MODEL              Optional Pi model override
   BIGENT_PI_API_PROVIDER       Optional provider id for BIGENT_PI_API_KEY
   BIGENT_PI_API_KEY            Optional runtime API key for the selected provider
   BIGENT_PI_THINKING           Optional: off, minimal, low, medium, high, xhigh
+  BIGENT_LOOP_MAX_TURNS        Optional loop upper bound, defaults to 30
 
 Tools:
   web_search, http_fetch, now, subagent, plus Pi read/bash/edit/write/grep/find/ls
@@ -53,8 +52,6 @@ async function main(): Promise<void> {
     const agent = new BigentAgent({
       homeDir: config.homeDir,
       cwd: config.cwd,
-      piProvider: config.piProvider,
-      piModel: config.piModel,
       piApiProvider: config.piApiProvider,
       piApiKey: config.piApiKey,
       piThinking: config.piThinking,
@@ -72,13 +69,12 @@ async function main(): Promise<void> {
     const agent = new BigentAgent({
       homeDir: config.homeDir,
       cwd: config.cwd,
-      piProvider: config.piProvider,
-      piModel: config.piModel,
       piApiProvider: config.piApiProvider,
       piApiKey: config.piApiKey,
       piThinking: config.piThinking,
     });
     const result = await runLoopedPrompt(agent, prompt, {
+      maxTurns: config.loopMaxTurns,
       onProgress: (event) => {
         if (event.stage === "start") {
           console.error(`loop start: 0/${event.maxTurns}`);

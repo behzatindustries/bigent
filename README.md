@@ -46,7 +46,7 @@ The installer asks for:
 
 It writes those settings to `~/.config/bigent/bigent.env`.
 
-BIgent uses Pi's default provider/model selection by default. Choose or change provider/model through Pi itself, or use BIgent's Telegram `/model` commands when you need a chat-specific override.
+BIgent uses Pi's default provider/model selection. Change provider/model through Pi itself; BIgent does not manage a separate provider/model override.
 
 ## Telegram
 
@@ -82,11 +82,10 @@ Useful environment:
 
 - `BIGENT_CWD`: working directory Pi should operate in. Defaults to the current directory.
 - `BIGENT_HOME`: BIgent state, auth, models, and sessions directory. Defaults to `~/.bigent`.
-- `BIGENT_PI_PROVIDER`: optional Pi provider override. Blank uses Pi default.
-- `BIGENT_PI_MODEL`: optional Pi model override. Blank uses Pi default.
 - `BIGENT_PI_API_PROVIDER`: provider id for `BIGENT_PI_API_KEY`, for example `xiaomi-token-plan-sgp`.
 - `BIGENT_PI_API_KEY`: Runtime API key for `BIGENT_PI_API_PROVIDER`.
 - `BIGENT_PI_THINKING`: `off`, `minimal`, `low`, `medium`, `high`, or `xhigh`.
+- `BIGENT_LOOP_MAX_TURNS`: upper bound for `bigent loop` and Telegram `/loop`. Defaults to `30`.
 
 ## Tools
 
@@ -116,10 +115,7 @@ BIgent adds three minimal custom tools:
 - `/session delete <id>`: delete a session
 - `/status`: show active config
 - `/loop <prompt>`: run a bounded agentic loop
-- `/model <provider> <model>`: set model
-- `/model clear`: clear model override
 - `/models [provider]`: list known models
-- `/provider [id|clear]`: manage provider
 - `/thinking [level|clear]`: manage thinking level
 - `/apikey status|set|provider|clear`: manage chat API key override
 - `/service start|stop|restart|status|logs|enable|disable`: manage user service

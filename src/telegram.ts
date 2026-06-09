@@ -79,8 +79,6 @@ export class TelegramBridge {
         homeDir: this.config.homeDir,
         cwd: this.config.cwd,
         sessionScope: this.sessionScope(chatId, chat.activeSession),
-        piProvider: chat.piProvider ?? this.config.piProvider,
-        piModel: chat.piModel ?? this.config.piModel,
         piApiProvider: chat.piApiProvider ?? this.config.piApiProvider,
         piApiKey: chat.piApiKey ?? this.config.piApiKey,
         piThinking: chat.piThinking ?? this.config.piThinking,
@@ -108,19 +106,18 @@ export class TelegramBridge {
         const prompt = args.join(" ").trim();
         if (!prompt) throw new Error("Usage: /loop <prompt...>");
         await this.sendChatAction(chatId, "typing");
-        const progressMessageId = await this.sendProgressMessage(chatId, "Loop started: 0/4");
+        const progressMessageId = await this.sendProgressMessage(chatId, `Loop started: 0/${this.config.loopMaxTurns}`);
         const chat = await this.state.getChat(chatId);
         const agent = new BigentAgent({
           homeDir: this.config.homeDir,
           cwd: this.config.cwd,
           sessionScope: this.sessionScope(chatId, chat.activeSession),
-          piProvider: chat.piProvider ?? this.config.piProvider,
-          piModel: chat.piModel ?? this.config.piModel,
           piApiProvider: chat.piApiProvider ?? this.config.piApiProvider,
           piApiKey: chat.piApiKey ?? this.config.piApiKey,
           piThinking: chat.piThinking ?? this.config.piThinking,
         });
         const result = await runLoopedPrompt(agent, prompt, {
+          maxTurns: this.config.loopMaxTurns,
           onProgress: async (event) => {
             if (event.stage === "before_turn") {
               await this.editMessage(chatId, progressMessageId, `Loop turn ${event.turn}/${event.maxTurns} running...`);
@@ -164,12 +161,8 @@ export class TelegramBridge {
         await this.handleSessionCommand(chatId, args);
         return;
       }
-      if (command === "/model") {
-        await this.handleModelCommand(chatId, args);
-        return;
-      }
-      if (command === "/provider") {
-        await this.setChatField(chatId, "piProvider", args[0], "Provider");
+      if (command === "/model" || command === "/provider") {
+        await this.sendMessage(chatId, "BIgent uses Pi's selected provider/model. Change it with the Pi CLI or Pi login flow.");
         return;
       }
       if (command === "/thinking") {
@@ -229,29 +222,6 @@ export class TelegramBridge {
     throw new Error("Usage: /session show | /session use <id> | /session delete <id>");
   }
 
-  private async handleModelCommand(chatId: string, args: string[]): Promise<void> {
-    if (args[0] === "clear") {
-      await this.state.updateChat(chatId, (chat) => {
-        delete chat.piProvider;
-        delete chat.piModel;
-      });
-      await this.sendMessage(chatId, "Model override cleared.");
-      return;
-    }
-    if (args.length === 0 || args[0] === "show") {
-      await this.sendMessage(chatId, await this.renderStatus(chatId));
-      return;
-    }
-    const [provider, model] = args[0].includes("/") ? args[0].split("/", 2) : [args[0], args[1]];
-    if (!provider || !model) throw new Error("Usage: /model <provider> <model> or /model <provider>/<model>");
-    this.assertModel(provider, model);
-    await this.state.updateChat(chatId, (chat) => {
-      chat.piProvider = provider;
-      chat.piModel = model;
-    });
-    await this.sendMessage(chatId, `Model set: ${provider}/${model}`);
-  }
-
   private async handleThinkingCommand(chatId: string, value: string | undefined): Promise<void> {
     if (!value || value === "show") {
       const chat = await this.state.getChat(chatId);
@@ -276,7 +246,7 @@ export class TelegramBridge {
     const [action, ...rest] = args;
     if (!action || action === "status") {
       const chat = await this.state.getChat(chatId);
-      const provider = chat.piApiProvider ?? this.config.piApiProvider ?? chat.piProvider ?? this.config.piProvider ?? "not set";
+      const provider = chat.piApiProvider ?? this.config.piApiProvider ?? "not set";
       await this.sendMessage(
         chatId,
         `API key: ${chat.piApiKey || this.config.piApiKey ? "configured" : "not configured"}\nAPI provider: ${provider}`,
@@ -346,25 +316,6 @@ export class TelegramBridge {
     await this.sendMessage(chatId, output);
   }
 
-  private async setChatField(chatId: string, field: "piProvider", value: string | undefined, label: string): Promise<void> {
-    if (!value) {
-      const chat = await this.state.getChat(chatId);
-      await this.sendMessage(chatId, `${label}: ${chat[field] ?? this.config.piProvider ?? "Pi default"}`);
-      return;
-    }
-    if (value === "clear") {
-      await this.state.updateChat(chatId, (chat) => {
-        delete chat[field];
-      });
-      await this.sendMessage(chatId, `${label} override cleared.`);
-      return;
-    }
-    await this.state.updateChat(chatId, (chat) => {
-      chat[field] = value;
-    });
-    await this.sendMessage(chatId, `${label} set: ${value}`);
-  }
-
   private async renderStatus(chatId: string): Promise<string> {
     const chat = await this.state.getChat(chatId);
     return [
@@ -372,9 +323,7 @@ export class TelegramBridge {
       `chat: ${chatId}`,
       `session: ${chat.activeSession}`,
       `cwd: ${this.config.cwd}`,
-      `provider: ${chat.piProvider ?? this.config.piProvider ?? "Pi default"}`,
-      `model: ${chat.piModel ?? this.config.piModel ?? "Pi default"}`,
-      `api provider: ${chat.piApiProvider ?? this.config.piApiProvider ?? chat.piProvider ?? this.config.piProvider ?? "not set"}`,
+      `api provider: ${chat.piApiProvider ?? this.config.piApiProvider ?? "not set"}`,
       `thinking: ${chat.piThinking ?? this.config.piThinking ?? "Pi default"}`,
       `api key: ${chat.piApiKey || this.config.piApiKey ? "configured" : "not configured"}`,
     ].join("\n");
@@ -394,14 +343,6 @@ export class TelegramBridge {
       .slice(0, 80)
       .map((model) => `${model.provider}/${model.id}`);
     return models.length ? models.join("\n") : `No models found${provider ? ` for ${provider}` : ""}.`;
-  }
-
-  private assertModel(provider: string, modelId: string): void {
-    const authStorage = AuthStorage.create(path.join(this.config.homeDir, "auth.json"));
-    const registry = ModelRegistry.create(authStorage, path.join(this.config.homeDir, "models.json"));
-    if (!registry.find(provider, modelId)) {
-      throw new Error(`Unknown Pi model: ${provider}/${modelId}`);
-    }
   }
 
   private sessionScope(chatId: string, sessionId: string): string {
@@ -505,12 +446,7 @@ const HELP_TEXT = `BIgent commands
 /session show - show active session
 /session use <id> - switch session
 /session delete <id> - delete session files
-/model show - show model
-/model <provider> <model> - set model
-/model <provider>/<model> - set model
-/model clear - clear model override
 /models [provider] - list known models
-/provider [id|clear] - show/set/clear provider
 /thinking [level|clear] - show/set/clear thinking
 /apikey status - show key status
 /apikey set <provider> <key> - save chat key override

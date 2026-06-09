@@ -8,7 +8,7 @@ import {
   ModelRegistry,
   SessionManager,
 } from "@earendil-works/pi-coding-agent";
-import { Type, type Api, type Model } from "@earendil-works/pi-ai";
+import { Type } from "@earendil-works/pi-ai";
 import type { BigentThinkingLevel } from "./config.js";
 import { BIGENT_SYSTEM_PROMPT } from "./prompt.js";
 import { commonTools } from "./tools.js";
@@ -27,8 +27,6 @@ export type BigentAgentOptions = {
   homeDir: string;
   cwd: string;
   sessionScope?: string;
-  piProvider?: string;
-  piModel?: string;
   piApiProvider?: string;
   piApiKey?: string;
   piThinking?: BigentThinkingLevel;
@@ -43,8 +41,6 @@ export class BigentAgent {
   private readonly homeDir: string;
   private readonly cwd: string;
   private readonly sessionScope: string;
-  private readonly piProvider?: string;
-  private readonly piModel?: string;
   private readonly piApiProvider?: string;
   private readonly piApiKey?: string;
   private readonly piThinking?: BigentThinkingLevel;
@@ -54,8 +50,6 @@ export class BigentAgent {
     this.homeDir = options.homeDir;
     this.cwd = options.cwd;
     this.sessionScope = options.sessionScope ?? "cli";
-    this.piProvider = options.piProvider;
-    this.piModel = options.piModel;
     this.piApiProvider = options.piApiProvider;
     this.piApiKey = options.piApiKey;
     this.piThinking = options.piThinking;
@@ -75,7 +69,6 @@ export class BigentAgent {
     if (apiProvider && apiKey) {
       authStorage.setRuntimeApiKey(apiProvider, apiKey);
     }
-    const model = this.resolveConfiguredModel(modelRegistry);
     const systemPrompt = [BIGENT_SYSTEM_PROMPT, options.extraSystemPrompt?.trim()].filter(Boolean).join("\n\n");
     const loader = new DefaultResourceLoader({
       cwd: this.cwd,
@@ -88,7 +81,6 @@ export class BigentAgent {
       cwd: this.cwd,
       authStorage,
       modelRegistry,
-      model,
       thinkingLevel: this.piThinking,
       resourceLoader: loader,
       sessionManager: SessionManager.continueRecent(this.cwd, sessionDir),
@@ -120,21 +112,8 @@ export class BigentAgent {
     return output.trim();
   }
 
-  private resolveConfiguredModel(modelRegistry: ModelRegistry): Model<Api> | undefined {
-    if (!this.piProvider && !this.piModel) return undefined;
-    if (!this.piProvider || !this.piModel) {
-      throw new Error("Both BIGENT_PI_PROVIDER and BIGENT_PI_MODEL are required when either is set.");
-    }
-
-    const model = modelRegistry.find(this.piProvider, this.piModel);
-    if (!model) {
-      throw new Error(`Unknown Pi model: ${this.piProvider}/${this.piModel}`);
-    }
-    return model;
-  }
-
   private resolveApiCredential(): { provider?: string; key?: string } {
-    const fallbackProvider = this.piApiProvider ?? this.piProvider;
+    const fallbackProvider = this.piApiProvider;
     if (!this.piApiKey) return { provider: fallbackProvider };
 
     const legacyMatch = this.piApiKey.match(/^([a-zA-Z0-9_.-]+)\s+(.+)$/);
@@ -160,8 +139,6 @@ export class BigentAgent {
           homeDir: this.homeDir,
           cwd: this.cwd,
           sessionScope: `subagent-${scope}-${Date.now()}`,
-          piProvider: this.piProvider,
-          piModel: this.piModel,
           piApiProvider: this.piApiProvider,
           piApiKey: this.piApiKey,
           piThinking: this.piThinking,

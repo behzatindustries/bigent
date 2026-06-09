@@ -31,7 +31,7 @@ const LOOP_SYSTEM_PROMPT = `Loop mode rules:
 `;
 
 export async function runLoopedPrompt(agent: BigentAgent, prompt: string, options: LoopRunOptions = {}): Promise<LoopRunResult> {
-  const maxTurns = Math.max(1, options.maxTurns ?? 4);
+  const maxTurns = Math.max(1, options.maxTurns ?? 30);
   const notify = async (event: LoopProgressEvent): Promise<void> => {
     await options.onProgress?.(event);
   };

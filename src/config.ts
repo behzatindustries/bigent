@@ -6,8 +6,7 @@ export type BigentConfig = {
   cwd: string;
   telegramToken?: string;
   telegramAllowlist: Set<string>;
-  piProvider?: string;
-  piModel?: string;
+  loopMaxTurns: number;
   piApiProvider?: string;
   piApiKey?: string;
   piThinking?: BigentThinkingLevel;
@@ -32,8 +31,7 @@ export function loadConfig(): BigentConfig {
     cwd,
     telegramToken: process.env.TELEGRAM_BOT_TOKEN,
     telegramAllowlist,
-    piProvider: emptyToUndefined(process.env.BIGENT_PI_PROVIDER),
-    piModel: emptyToUndefined(process.env.BIGENT_PI_MODEL),
+    loopMaxTurns: parseLoopMaxTurns(process.env.BIGENT_LOOP_MAX_TURNS),
     piApiProvider: emptyToUndefined(process.env.BIGENT_PI_API_PROVIDER),
     piApiKey: emptyToUndefined(process.env.BIGENT_PI_API_KEY),
     piThinking: parseThinkingLevel(process.env.BIGENT_PI_THINKING),
@@ -52,4 +50,14 @@ function parseThinkingLevel(value: string | undefined): BigentThinkingLevel | un
     throw new Error(`Invalid BIGENT_PI_THINKING: ${normalized}`);
   }
   return normalized as BigentThinkingLevel;
+}
+
+function parseLoopMaxTurns(value: string | undefined): number {
+  const normalized = value?.trim();
+  if (!normalized) return 30;
+  const parsed = Number.parseInt(normalized, 10);
+  if (!Number.isInteger(parsed) || parsed < 1) {
+    throw new Error(`Invalid BIGENT_LOOP_MAX_TURNS: ${normalized}`);
+  }
+  return parsed;
 }
