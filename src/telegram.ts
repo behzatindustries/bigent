@@ -80,6 +80,12 @@ export class TelegramBridge {
     await this.sendChatAction(chatId, "typing");
     try {
       const progressMessageId = await this.sendProgressMessage(chatId, "Working...");
+      let progressText = "Working...";
+      const setProgressText = async (nextText: string): Promise<void> => {
+        if (nextText === progressText) return;
+        progressText = nextText;
+        await this.editMessage(chatId, progressMessageId, nextText);
+      };
       const chat = await this.state.getChat(chatId);
       const agent = new BigentAgent({
         homeDir: this.config.homeDir,
@@ -92,23 +98,23 @@ export class TelegramBridge {
       const answer = await agent.prompt(text.replace(/^\/bigent\s*/i, "").trim() || text, {
         onEvent: async (event) => {
           if (event.type === "tool_execution_start" && typeof event.toolName === "string") {
-            await this.editMessage(chatId, progressMessageId, `Working: tool ${event.toolName} started`);
+            await setProgressText(`Working: tool ${event.toolName} started`);
             return;
           }
           if (event.type === "tool_execution_update" && typeof event.toolName === "string") {
-            await this.editMessage(chatId, progressMessageId, `Working: tool ${event.toolName} running`);
+            await setProgressText(`Working: tool ${event.toolName} running`);
             return;
           }
           if (event.type === "tool_execution_end" && typeof event.toolName === "string") {
-            await this.editMessage(chatId, progressMessageId, `Working: tool ${event.toolName} ${event.isError ? "failed" : "done"}`);
+            await setProgressText(`Working: tool ${event.toolName} ${event.isError ? "failed" : "done"}`);
             return;
           }
           if (event.type === "message_update" && event.assistantMessageEvent?.type === "text_delta") {
-            await this.editMessage(chatId, progressMessageId, "Working: writing response");
+            await setProgressText("Working: writing response");
           }
         },
       });
-      await this.editMessage(chatId, progressMessageId, "Done.");
+      await setProgressText("Done.");
       await this.sendMessage(chatId, answer || "Done.");
     } catch (error) {
       await this.sendMessage(chatId, this.renderError(error));
@@ -141,45 +147,49 @@ export class TelegramBridge {
           piApiKey: chat.piApiKey ?? this.config.piApiKey,
           piThinking: chat.piThinking ?? this.config.piThinking,
         });
+        let progressText = `Loop started: 0/${this.config.loopMaxTurns}`;
+        const setProgressText = async (nextText: string): Promise<void> => {
+          if (nextText === progressText) return;
+          progressText = nextText;
+          await this.editMessage(chatId, progressMessageId, nextText);
+        };
         const result = await runLoopedPrompt(agent, prompt, {
           maxTurns: this.config.loopMaxTurns,
           onProgress: async (event) => {
             if (event.stage === "before_turn") {
-              await this.editMessage(chatId, progressMessageId, `Loop turn ${event.turn}/${event.maxTurns} running...`);
+              await setProgressText(`Loop turn ${event.turn}/${event.maxTurns} running...`);
               return;
             }
             if (event.stage === "tool_start") {
-              await this.editMessage(chatId, progressMessageId, `Loop turn ${event.turn}/${event.maxTurns}: tool ${event.tool} started`);
+              await setProgressText(`Loop turn ${event.turn}/${event.maxTurns}: tool ${event.tool} started`);
               return;
             }
             if (event.stage === "tool_update") {
-              await this.editMessage(chatId, progressMessageId, `Loop turn ${event.turn}/${event.maxTurns}: tool ${event.tool} ${event.status}`);
+              await setProgressText(`Loop turn ${event.turn}/${event.maxTurns}: tool ${event.tool} ${event.status}`);
               return;
             }
             if (event.stage === "tool_end") {
-              await this.editMessage(chatId, progressMessageId, `Loop turn ${event.turn}/${event.maxTurns}: tool ${event.tool} ${event.status}`);
+              await setProgressText(`Loop turn ${event.turn}/${event.maxTurns}: tool ${event.tool} ${event.status}`);
               return;
             }
             if (event.stage === "after_turn") {
-              await this.editMessage(chatId, progressMessageId, `Loop turn ${event.turn}/${event.maxTurns}: ${event.status}`);
+              await setProgressText(`Loop turn ${event.turn}/${event.maxTurns}: ${event.status}`);
               return;
             }
             if (event.stage === "blocked") {
-              await this.editMessage(chatId, progressMessageId, `Loop blocked at ${event.turn}/${event.maxTurns}`);
+              await setProgressText(`Loop blocked at ${event.turn}/${event.maxTurns}`);
               return;
             }
             if (event.stage === "stopped") {
-              await this.editMessage(chatId, progressMessageId, `Loop stopped at ${event.turn}/${event.maxTurns}`);
+              await setProgressText(`Loop stopped at ${event.turn}/${event.maxTurns}`);
               return;
             }
             if (event.stage === "done") {
-              await this.editMessage(chatId, progressMessageId, `Loop done at ${event.turn}/${event.maxTurns}`);
+              await setProgressText(`Loop done at ${event.turn}/${event.maxTurns}`);
             }
           },
         });
-        await this.editMessage(
-          chatId,
-          progressMessageId,
+        await setProgressText(
           result.status === "done"
             ? `Loop done in ${result.turns} turn${result.turns === 1 ? "" : "s"}`
             : result.status === "blocked"
