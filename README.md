@@ -73,6 +73,8 @@ journalctl --user -u bigent-telegram.service -f
 ```sh
 bigent ask "inspect this repo and summarize the package"
 bigent loop "inspect this repo, propose the next missing safety fix, and apply it"
+bigent chat
+bigent config
 bigent search "latest Pi coding agent"
 bigent service status
 bigent service restart
@@ -99,12 +101,34 @@ BIgent enables Pi's common coding tools:
 - `find`
 - `ls`
 
-BIgent adds three minimal custom tools:
+BIgent adds focused custom tools:
 
 - `web_search`: current web search through DuckDuckGo's lightweight HTML endpoint.
 - `http_fetch`: fetch and trim public HTTP(S) pages.
 - `now`: local and UTC time.
+- `workspace_summary`: summarize files, package metadata, and git state for the active workspace.
+- `shell_check`: run a short, non-destructive shell command for diagnostics.
+- `text_stats`: count characters, words, lines, and rough tokens.
 - `subagent`: run a focused one-shot BIgent/Pi subagent for isolated work.
+
+## Terminal UIs
+
+BIgent includes two separate terminal interfaces:
+
+```sh
+bigent config
+bigent chat
+```
+
+`bigent config` edits `~/.config/bigent/bigent.env` interactively. Environment variables still override file values.
+
+`bigent chat` starts a persistent terminal chat session. Commands inside the chat TUI:
+
+- `/help`: show chat TUI commands
+- `/new [name]`: start a new terminal chat session
+- `/status`: show active config
+- `/loop <prompt>`: run loop mode from the terminal
+- `/exit`: leave the TUI
 
 ## Telegram Commands
 

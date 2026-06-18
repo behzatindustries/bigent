@@ -88,7 +88,22 @@ export class BigentAgent {
       thinkingLevel: this.piThinking,
       resourceLoader: loader,
       sessionManager: SessionManager.continueRecent(this.cwd, sessionDir),
-      tools: ["read", "bash", "edit", "write", "grep", "find", "ls", "web_search", "http_fetch", "now", "subagent"],
+      tools: [
+        "read",
+        "bash",
+        "edit",
+        "write",
+        "grep",
+        "find",
+        "ls",
+        "web_search",
+        "http_fetch",
+        "now",
+        "workspace_summary",
+        "shell_check",
+        "text_stats",
+        "subagent",
+      ],
       customTools: this.allowSubagents ? [...commonTools, this.createSubagentTool()] : commonTools,
     });
 

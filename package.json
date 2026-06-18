@@ -1,7 +1,7 @@
 {
   "name": "bigent",
-  "version": "0.1.0",
-  "description": "BIgent: Behzat Industries Agent, a minimal Telegram-first agent built on Pi.",
+  "version": "0.2.0",
+  "description": "BIgent: Behzat Industries Agent, a Telegram and terminal agent built on Pi.",
   "type": "module",
   "bin": {
     "bigent": "./dist/cli.js"

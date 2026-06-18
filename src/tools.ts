@@ -1,7 +1,13 @@
 import { Type } from "@earendil-works/pi-ai";
 import { defineTool } from "@earendil-works/pi-coding-agent";
+import { execFile } from "node:child_process";
+import fs from "node:fs/promises";
+import os from "node:os";
+import path from "node:path";
+import { promisify } from "node:util";
 
 const USER_AGENT = "BIgent/0.1 (+https://github.com/behzatindustries/bigent)";
+const execFileAsync = promisify(execFile);
 
 function stripHtml(value: string): string {
   return value
@@ -103,8 +109,144 @@ export const nowTool = defineTool({
   }),
 });
 
-export const commonTools = [webSearchTool, httpFetchTool, nowTool];
+export const workspaceSummaryTool = defineTool({
+  name: "workspace_summary",
+  label: "Workspace Summary",
+  description: "Summarize the current workspace files, package metadata, and git state.",
+  parameters: Type.Object({
+    root: Type.Optional(Type.String({ description: "Workspace root. Defaults to the current working directory." })),
+  }),
+  execute: async (_toolCallId, params) => {
+    const root = path.resolve(params.root ?? process.cwd());
+    const [files, packageJson, gitStatus] = await Promise.all([
+      listFiles(root, 80),
+      readOptional(path.join(root, "package.json")),
+      runOptional("git", ["-C", root, "status", "--short", "--branch"]),
+    ]);
+    const packageInfo = packageJson ? parsePackageSummary(packageJson) : "No package.json found.";
+
+    return {
+      content: [
+        {
+          type: "text",
+          text: [`Root: ${root}`, packageInfo, `Git:\n${gitStatus || "Not a git repository or git unavailable."}`, `Files:\n${files.join("\n")}`].join("\n\n"),
+        },
+      ],
+      details: { root, fileCount: files.length },
+    };
+  },
+});
+
+export const shellCheckTool = defineTool({
+  name: "shell_check",
+  label: "Shell Check",
+  description: "Run a read-only shell command with a short timeout and return stdout/stderr.",
+  parameters: Type.Object({
+    command: Type.String({ description: "Executable name, for example npm or git." }),
+    args: Type.Optional(Type.Array(Type.String(), { description: "Command arguments." })),
+    cwd: Type.Optional(Type.String({ description: "Working directory." })),
+  }),
+  execute: async (_toolCallId, params) => {
+    const command = params.command.trim();
+    if (!command || command.includes("/") || command.includes("\\")) {
+      throw new Error("Use an executable name only.");
+    }
+    if (isBlockedShellCommand(command)) {
+      throw new Error(`${command} is not allowed through shell_check.`);
+    }
+    const cwd = path.resolve(params.cwd ?? process.cwd());
+    const args = params.args ?? [];
+    const result = await runOptional(command, args, cwd, 15000);
+
+    return {
+      content: [{ type: "text", text: result || "Command completed without output." }],
+      details: { command, args, cwd },
+    };
+  },
+});
+
+export const textStatsTool = defineTool({
+  name: "text_stats",
+  label: "Text Stats",
+  description: "Count characters, words, lines, and rough tokens for supplied text.",
+  parameters: Type.Object({
+    text: Type.String({ description: "Text to analyze." }),
+  }),
+  execute: async (_toolCallId, params) => {
+    const lines = params.text ? params.text.split(/\r?\n/).length : 0;
+    const words = params.text.trim() ? params.text.trim().split(/\s+/).length : 0;
+    const chars = params.text.length;
+    const roughTokens = Math.ceil(chars / 4);
+
+    return {
+      content: [{ type: "text", text: `Characters: ${chars}\nWords: ${words}\nLines: ${lines}\nRough tokens: ${roughTokens}` }],
+      details: { chars, words, lines, roughTokens },
+    };
+  },
+});
+
+export const commonTools = [webSearchTool, httpFetchTool, nowTool, workspaceSummaryTool, shellCheckTool, textStatsTool];
 
 function normalizeMax(value: unknown, fallback: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, Number(value ?? fallback)));
+}
+
+async function listFiles(root: string, maxFiles: number): Promise<string[]> {
+  const ignored = new Set([".git", "node_modules", "dist", ".cache"]);
+  const files: string[] = [];
+
+  async function visit(dir: string): Promise<void> {
+    if (files.length >= maxFiles) return;
+    const entries = await fs.readdir(dir, { withFileTypes: true });
+    for (const entry of entries.sort((a, b) => a.name.localeCompare(b.name))) {
+      if (files.length >= maxFiles || ignored.has(entry.name)) continue;
+      const fullPath = path.join(dir, entry.name);
+      const relative = path.relative(root, fullPath) || ".";
+      if (entry.isDirectory()) {
+        await visit(fullPath);
+      } else if (entry.isFile()) {
+        files.push(relative);
+      }
+    }
+  }
+
+  await visit(root);
+  return files;
+}
+
+async function readOptional(filePath: string): Promise<string> {
+  try {
+    return await fs.readFile(filePath, "utf8");
+  } catch {
+    return "";
+  }
+}
+
+async function runOptional(command: string, args: string[], cwd = process.cwd(), timeout = 8000): Promise<string> {
+  try {
+    const { stdout, stderr } = await execFileAsync(command, args, {
+      cwd,
+      timeout,
+      maxBuffer: 64 * 1024,
+      env: { ...process.env, HOME: process.env.HOME ?? os.homedir() },
+    });
+    return `${stdout}${stderr}`.trim();
+  } catch (error) {
+    const candidate = error as { stdout?: string; stderr?: string; message?: string };
+    return `${candidate.stdout ?? ""}${candidate.stderr ?? ""}`.trim() || candidate.message || "";
+  }
+}
+
+function parsePackageSummary(value: string): string {
+  try {
+    const parsed = JSON.parse(value) as { name?: string; version?: string; scripts?: Record<string, string> };
+    const scripts = parsed.scripts ? Object.keys(parsed.scripts).join(", ") : "none";
+    return `Package: ${parsed.name ?? "unnamed"} ${parsed.version ?? ""}\nScripts: ${scripts}`;
+  } catch {
+    return "package.json exists but could not be parsed.";
+  }
+}
+
+function isBlockedShellCommand(command: string): boolean {
+  return new Set(["rm", "mv", "cp", "dd", "mkfs", "shutdown", "reboot", "systemctl", "sudo", "ssh", "scp", "rsync"]).has(command);
 }

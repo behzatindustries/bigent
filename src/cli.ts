@@ -1,5 +1,7 @@
 #!/usr/bin/env node
 import { BigentAgent } from "./agent.js";
+import { runChatTui } from "./chat-tui.js";
+import { runConfigTui } from "./config-tui.js";
 import { loadConfig } from "./config.js";
 import { runLoopedPrompt } from "./loop.js";
 import { TelegramBridge } from "./telegram.js";
@@ -13,6 +15,8 @@ const HELP = `BIgent - Behzat Industries Agent
 Usage:
   bigent ask <prompt...>       Run one prompt through Pi
   bigent loop <prompt...>      Run a bounded agentic loop for larger tasks
+  bigent chat                  Open an interactive chat TUI
+  bigent config                Open an interactive config TUI
   bigent search <query...>     Test BIgent web search directly
   bigent telegram              Run the Telegram bot bridge
   bigent service <action>      Manage user systemd Telegram service
@@ -32,7 +36,8 @@ Environment:
   BIGENT_LOOP_MAX_TURNS        Optional loop upper bound, defaults to 30
 
 Tools:
-  web_search, http_fetch, now, subagent, plus Pi read/bash/edit/write/grep/find/ls
+  web_search, http_fetch, now, workspace_summary, shell_check, text_stats, subagent,
+  plus Pi read/bash/edit/write/grep/find/ls
 `;
 
 async function main(): Promise<void> {
@@ -104,6 +109,24 @@ async function main(): Promise<void> {
       },
     });
     console.log(result.answer || "Done.");
+    return;
+  }
+
+  if (command === "chat") {
+    if (args.includes("--help") || args.includes("-h")) {
+      console.log("Usage: bigent chat");
+      return;
+    }
+    await runChatTui(config);
+    return;
+  }
+
+  if (command === "config") {
+    if (args.includes("--help") || args.includes("-h")) {
+      console.log("Usage: bigent config");
+      return;
+    }
+    await runConfigTui();
     return;
   }
 
