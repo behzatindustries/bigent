@@ -125,9 +125,9 @@ bigent config
 bigent chat
 ```
 
-`bigent config` opens an nmtui-style full-screen config editor for `~/.config/bigent/bigent.env`: arrow keys move, Enter edits, Space cycles choices, `d` clears, `s` saves, `q` quits. Environment variables still override file values.
+`bigent config` opens a blessed-powered nmtui-style config editor for `~/.config/bigent/bigent.env`: arrow keys move, Enter edits, Space cycles choices, `d` clears, `s` saves, `q` quits. Environment variables still override file values.
 
-`bigent chat` starts a persistent terminal chat session with slash commands, loop mode, streaming tool status, and memory commands. Commands inside the chat TUI:
+`bigent chat` starts a blessed-powered persistent terminal chat session with slash-command prediction, loop mode, tool status lines, and memory commands. Commands inside the chat TUI:
 
 - `/help`: show chat TUI commands
 - `/new [name]`: start a new terminal chat session
