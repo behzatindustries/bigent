@@ -195,13 +195,3 @@ bigent uninstall --purge
 ```
 
 `bigent uninstall` stops/disables the user service, removes the service file, removes the `bigent` command link, and removes the install directory. `--purge` also removes `~/.config/bigent` and `~/.bigent`.
-
-## behzat.org Installer
-
-Upload [scripts/install-bigent.sh](scripts/install-bigent.sh) to:
-
-```text
-https://behzat.org/install-bigent.sh
-```
-
-The script installs or updates BIgent from the GitHub repo, runs `npm ci --ignore-scripts`, builds the TypeScript package, links `bigent` into `~/.local/bin`, prompts for Telegram/Pi settings, and can install the user systemd service.
