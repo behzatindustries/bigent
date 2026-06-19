@@ -10,8 +10,9 @@ import {
 } from "@earendil-works/pi-coding-agent";
 import { Type } from "@earendil-works/pi-ai";
 import type { BigentThinkingLevel } from "./config.js";
+import { MemoryStore } from "./memory.js";
 import { BIGENT_SYSTEM_PROMPT } from "./prompt.js";
-import { commonTools } from "./tools.js";
+import { createCommonTools } from "./tools.js";
 
 type AgentEvent = {
   type?: string;
@@ -73,7 +74,8 @@ export class BigentAgent {
     if (apiProvider && apiKey) {
       authStorage.setRuntimeApiKey(apiProvider, apiKey);
     }
-    const systemPrompt = [BIGENT_SYSTEM_PROMPT, options.extraSystemPrompt?.trim()].filter(Boolean).join("\n\n");
+    const memoryContext = await new MemoryStore(this.homeDir).context(text);
+    const systemPrompt = [BIGENT_SYSTEM_PROMPT, memoryContext, options.extraSystemPrompt?.trim()].filter(Boolean).join("\n\n");
     const loader = new DefaultResourceLoader({
       cwd: this.cwd,
       agentDir: this.homeDir,
@@ -102,9 +104,16 @@ export class BigentAgent {
         "workspace_summary",
         "shell_check",
         "text_stats",
+        "weather",
+        "exchange_rate",
+        "memory_save",
+        "memory_search",
+        "memory_list",
         "subagent",
       ],
-      customTools: this.allowSubagents ? [...commonTools, this.createSubagentTool()] : commonTools,
+      customTools: this.allowSubagents
+        ? [...createCommonTools({ homeDir: this.homeDir }), this.createSubagentTool()]
+        : createCommonTools({ homeDir: this.homeDir }),
     });
 
     let output = "";

@@ -8,6 +8,7 @@ import { TelegramBridge } from "./telegram.js";
 import { runServiceAction, serviceLogs } from "./service.js";
 import { updateAgentAndPi, updatePiDependency } from "./update-pi.js";
 import { uninstallBigent } from "./uninstall.js";
+import { MemoryStore, renderMemories } from "./memory.js";
 import { webSearch } from "./tools.js";
 
 const HELP = `BIgent - Behzat Industries Agent
@@ -18,6 +19,8 @@ Usage:
   bigent chat                  Open an interactive chat TUI
   bigent config                Open an interactive config TUI
   bigent search <query...>     Test BIgent web search directly
+  bigent memory add|search|list|delete
+                              Manage persistent memory
   bigent telegram              Run the Telegram bot bridge
   bigent service <action>      Manage user systemd Telegram service
   bigent update                Update BIgent source and Pi SDK
@@ -34,9 +37,11 @@ Environment:
   BIGENT_PI_API_KEY            Optional runtime API key for the selected provider
   BIGENT_PI_THINKING           Optional: off, minimal, low, medium, high, xhigh
   BIGENT_LOOP_MAX_TURNS        Optional loop upper bound, defaults to 30
+  BRAVE_API_KEY                Optional Brave Search API key for web_search
 
 Tools:
-  web_search, http_fetch, now, workspace_summary, shell_check, text_stats, subagent,
+  web_search, http_fetch, now, workspace_summary, shell_check, text_stats,
+  weather, exchange_rate, memory_save/search/list, subagent,
   plus Pi read/bash/edit/write/grep/find/ls
 `;
 
@@ -112,7 +117,7 @@ async function main(): Promise<void> {
     return;
   }
 
-  if (command === "chat") {
+  if (command === "chat" || command === "tui") {
     if (args.includes("--help") || args.includes("-h")) {
       console.log("Usage: bigent chat");
       return;
@@ -128,6 +133,31 @@ async function main(): Promise<void> {
     }
     await runConfigTui();
     return;
+  }
+
+  if (command === "memory") {
+    const [action = "list", ...rest] = args;
+    const memory = new MemoryStore(config.homeDir);
+    if (action === "add") {
+      const entry = await memory.add(rest.join(" "), { source: "cli" });
+      console.log(`Saved memory ${entry.id}`);
+      return;
+    }
+    if (action === "search") {
+      console.log(renderMemories(await memory.search(rest.join(" "), 20)));
+      return;
+    }
+    if (action === "list") {
+      console.log(renderMemories(await memory.list(20)));
+      return;
+    }
+    if (action === "delete") {
+      const id = rest[0];
+      if (!id) throw new Error("Usage: bigent memory delete <id>");
+      console.log((await memory.delete(id)) ? `Deleted ${id}` : `Memory not found: ${id}`);
+      return;
+    }
+    throw new Error("Usage: bigent memory add <text> | search <query> | list | delete <id>");
   }
 
   if (command === "search") {

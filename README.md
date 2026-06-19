@@ -76,6 +76,8 @@ bigent loop "inspect this repo, propose the next missing safety fix, and apply i
 bigent chat
 bigent config
 bigent search "latest Pi coding agent"
+bigent memory add "User prefers concise answers."
+bigent memory search preferences
 bigent service status
 bigent service restart
 ```
@@ -101,17 +103,20 @@ BIgent enables Pi's common coding tools:
 - `find`
 - `ls`
 
-BIgent adds focused custom tools:
+BIgent adds focused minimal custom tools:
 
-- `web_search`: current web search through DuckDuckGo's lightweight HTML endpoint.
+- `web_search`: current web search through Brave Search when `BRAVE_API_KEY` is set, otherwise DuckDuckGo's lightweight HTML endpoint.
 - `http_fetch`: fetch and trim public HTTP(S) pages.
 - `now`: local and UTC time.
 - `workspace_summary`: summarize files, package metadata, and git state for the active workspace.
 - `shell_check`: run a short, non-destructive shell command for diagnostics.
 - `text_stats`: count characters, words, lines, and rough tokens.
+- `weather`: current weather through Open-Meteo.
+- `exchange_rate`: currency conversion through Frankfurter/ECB rates.
+- `memory_save`, `memory_search`, `memory_list`: durable JSONL memory in `BIGENT_HOME/memories`.
 - `subagent`: run a focused one-shot BIgent/Pi subagent for isolated work.
 
-## Terminal UIs
+## Persistent Memory and Terminal UIs
 
 BIgent includes two separate terminal interfaces:
 
@@ -122,13 +127,16 @@ bigent chat
 
 `bigent config` edits `~/.config/bigent/bigent.env` interactively. Environment variables still override file values.
 
-`bigent chat` starts a persistent terminal chat session. Commands inside the chat TUI:
+`bigent chat` starts a persistent terminal chat session with slash commands, loop mode, streaming tool status, and memory commands. Commands inside the chat TUI:
 
 - `/help`: show chat TUI commands
 - `/new [name]`: start a new terminal chat session
 - `/status`: show active config
 - `/loop <prompt>`: run loop mode from the terminal
+- `/memory add|search|list|delete`: manage persistent memory
 - `/exit`: leave the TUI
+
+BIgent automatically injects relevant memories into future prompts and can save durable facts/preferences with the memory tools while keeping the wrapper minimal.
 
 ## Telegram Commands
 
@@ -140,6 +148,7 @@ bigent chat
 - `/status`: show active config
 - `/loop <prompt>`: run a bounded agentic loop
 - `/models [provider]`: list known models
+- `/memory add|search|list|delete`: manage persistent memory
 - `/thinking [level|clear]`: manage thinking level
 - `/apikey status|set|provider|clear`: manage chat API key override
 - `/service start|stop|restart|status|logs|enable|disable`: manage user service

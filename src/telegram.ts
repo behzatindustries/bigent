@@ -4,6 +4,7 @@ import { AuthStorage, ModelRegistry } from "@earendil-works/pi-coding-agent";
 import { BigentAgent } from "./agent.js";
 import type { BigentConfig, BigentThinkingLevel } from "./config.js";
 import { runLoopedPrompt } from "./loop.js";
+import { MemoryStore, renderMemories } from "./memory.js";
 import { runServiceAction, serviceLogs } from "./service.js";
 import { normalizeSessionId, StateStore, type ChatState } from "./state.js";
 
@@ -232,6 +233,10 @@ export class TelegramBridge {
         await this.sendMessage(chatId, this.renderModels(args[0]));
         return;
       }
+      if (command === "/memory") {
+        await this.handleMemoryCommand(chatId, args);
+        return;
+      }
       if (command === "/service") {
         await this.handleServiceCommand(chatId, args);
         return;
@@ -356,6 +361,31 @@ export class TelegramBridge {
       return;
     }
     throw new Error("Usage: /apikey status | /apikey set <provider> <key> | /apikey provider <provider> | /apikey fix | /apikey clear");
+  }
+
+  private async handleMemoryCommand(chatId: string, args: string[]): Promise<void> {
+    const [action = "list", ...rest] = args;
+    const memory = new MemoryStore(this.config.homeDir);
+    if (action === "add") {
+      const entry = await memory.add(rest.join(" "), { source: `telegram:${chatId}` });
+      await this.sendMessage(chatId, `Saved memory ${entry.id}`);
+      return;
+    }
+    if (action === "search") {
+      await this.sendMessage(chatId, renderMemories(await memory.search(rest.join(" "), 12)));
+      return;
+    }
+    if (action === "list") {
+      await this.sendMessage(chatId, renderMemories(await memory.list(12)));
+      return;
+    }
+    if (action === "delete") {
+      const id = rest[0];
+      if (!id) throw new Error("Usage: /memory delete <id>");
+      await this.sendMessage(chatId, (await memory.delete(id)) ? `Deleted ${id}` : `Memory not found: ${id}`);
+      return;
+    }
+    throw new Error("Usage: /memory add <text> | search <query> | list | delete <id>");
   }
 
   private async handleServiceCommand(chatId: string, args: string[]): Promise<void> {
@@ -521,6 +551,7 @@ const HELP_TEXT = `BIgent commands
 /session use <id> - switch session
 /session delete <id> - delete session files
 /models [provider] - list known models
+/memory add|search|list|delete - persistent memory
 /thinking [level|clear] - show/set/clear thinking
 /apikey status - show key status
 /apikey set <provider> <key> - save chat key override
