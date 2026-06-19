@@ -74,7 +74,8 @@ export class BigentAgent {
     if (apiProvider && apiKey) {
       authStorage.setRuntimeApiKey(apiProvider, apiKey);
     }
-    const memoryContext = await new MemoryStore(this.homeDir).context(text);
+    const memory = new MemoryStore(this.homeDir);
+    const memoryContext = await memory.context(text);
     const systemPrompt = [BIGENT_SYSTEM_PROMPT, memoryContext, options.extraSystemPrompt?.trim()].filter(Boolean).join("\n\n");
     const loader = new DefaultResourceLoader({
       cwd: this.cwd,
@@ -138,7 +139,9 @@ export class BigentAgent {
       unsubscribe();
     }
 
-    return output.trim();
+    const finalOutput = output.trim();
+    await memory.rememberConversation(text, finalOutput, this.sessionScope);
+    return finalOutput;
   }
 
   private resolveApiCredential(): { provider?: string; key?: string } {

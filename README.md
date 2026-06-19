@@ -136,7 +136,7 @@ bigent chat
 - `/memory add|search|list|delete`: manage persistent memory
 - `/exit`: leave the TUI
 
-BIgent automatically injects relevant memories into future prompts and can save durable facts/preferences with the memory tools while keeping the wrapper minimal.
+BIgent automatically extracts durable preferences/project facts from useful conversations, injects relevant memories into future prompts, and still exposes memory commands for inspection or cleanup.
 
 ## Telegram Commands
 

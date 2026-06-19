@@ -70,6 +70,25 @@ export class MemoryStore {
     return true;
   }
 
+  async rememberConversation(userText: string, assistantText: string, source = "auto"): Promise<MemoryEntry[]> {
+    const candidates = extractMemoryCandidates(userText, assistantText);
+    const saved: MemoryEntry[] = [];
+    for (const candidate of candidates) {
+      const entry = await this.addIfNew(candidate.text, { kind: candidate.kind, tags: candidate.tags, source });
+      if (entry) saved.push(entry);
+    }
+    return saved;
+  }
+
+  async addIfNew(text: string, options: { kind?: string; tags?: string[]; source?: string } = {}): Promise<MemoryEntry | undefined> {
+    const normalized = text.trim().replace(/\s+/g, " ");
+    if (!normalized) return undefined;
+    const entries = await this.readAll();
+    const key = normalizeMemoryText(normalized);
+    if (entries.some((entry) => normalizeMemoryText(entry.text) === key)) return undefined;
+    return this.add(normalized, options);
+  }
+
   async context(query: string, limit = 8): Promise<string> {
     const entries = await this.search(query, limit);
     if (!entries.length) return "";
@@ -125,4 +144,66 @@ function normalizeLimit(value: unknown, min: number, max: number): number {
 function scoreMemory(entry: MemoryEntry, terms: string[]): number {
   const haystack = `${entry.kind} ${entry.tags.join(" ")} ${entry.text}`.toLowerCase();
   return terms.reduce((score, term) => score + (haystack.includes(term) ? term.length : 0), 0);
+}
+
+type MemoryCandidate = { text: string; kind: MemoryKind; tags: string[] };
+
+function extractMemoryCandidates(userText: string, assistantText: string): MemoryCandidate[] {
+  const candidates: MemoryCandidate[] = [];
+  const user = userText.trim();
+  const assistant = assistantText.trim();
+  const lower = user.toLowerCase();
+
+  const explicit = user.match(/(?:remember|save this|note that)[:\s]+(.{8,240})/i)?.[1];
+  if (explicit) candidates.push({ text: explicit, kind: "note", tags: ["explicit"] });
+
+  for (const match of user.matchAll(/\b(?:i prefer|i like|i want|please always|always|don't|do not)\b[^.!?\n]{4,180}/gi)) {
+    candidates.push({ text: match[0], kind: "preference", tags: ["user"] });
+  }
+
+  for (const match of user.matchAll(/\bmy\s+([a-z][a-z0-9 _-]{1,32})\s+(?:is|are)\s+([^\n]{2,120})/gi)) {
+    const value = cleanMemoryFragment(match[2]);
+    candidates.push({ text: `User's ${match[1].trim()} is ${value}`, kind: "fact", tags: ["user"] });
+  }
+
+  for (const match of user.matchAll(/\b(?:i am|i'm|i work on|i use|we use|this project uses|bigent uses)\b[^.!?\n]{4,180}/gi)) {
+    const text = match[0];
+    candidates.push({ text, kind: /project|bigent|we use|this project/i.test(text) ? "project" : "fact", tags: ["auto"] });
+  }
+
+  if (/\bbigent\b/i.test(user) && /\b(?:implemented|added|changed|fixed|installed|deployed|restarted|built)\b/i.test(assistant)) {
+    const summary = firstSentence(assistant);
+    if (summary) candidates.push({ text: `BIgent project update: ${summary}`, kind: "project", tags: ["bigent"] });
+  }
+
+  return dedupeCandidates(candidates).slice(0, 6);
+}
+
+function firstSentence(value: string): string {
+  return value
+    .replace(/\[\[[^\]]+\]\]/g, "")
+    .split(/\n|(?<=[.!?])\s+/)
+    .map((part) => part.trim())
+    .find((part) => part.length >= 12 && part.length <= 220) ?? "";
+}
+
+function dedupeCandidates(candidates: MemoryCandidate[]): MemoryCandidate[] {
+  const seen: string[] = [];
+  return candidates
+    .map((candidate) => ({ ...candidate, text: cleanMemoryFragment(candidate.text) }))
+    .sort((a, b) => b.text.length - a.text.length)
+    .filter((candidate) => {
+      const key = normalizeMemoryText(candidate.text);
+      if (!key || seen.some((entry) => entry === key || entry.includes(key) || key.includes(entry))) return false;
+      seen.push(key);
+      return true;
+    });
+}
+
+function cleanMemoryFragment(value: string): string {
+  return value.replace(/\s+/g, " ").replace(/[.!?]+$/, "").trim();
+}
+
+function normalizeMemoryText(value: string): string {
+  return value.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
 }
