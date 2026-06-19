@@ -17,6 +17,7 @@ export async function runChatTui(config: BigentConfig): Promise<void> {
   let busy = false;
   let history = await readHistory(historyPath);
   let historyIndex = history.length;
+  let closed = false;
 
   const screen = blessed.screen({ smartCSR: true, fullUnicode: true, title: "BIgent" });
   const header = blessed.box({ top: 0, height: 1, width: "100%", tags: true, style: { bg: "blue", fg: "white" } });
@@ -97,10 +98,22 @@ export async function runChatTui(config: BigentConfig): Promise<void> {
     return commands.find((command) => command.name.startsWith(first) && command.name !== first) ?? commands.find((command) => command.name === first);
   }
 
+  function refocusInput() {
+    if (closed) return;
+    input.focus();
+    const reader = input as unknown as { readInput?: (callback?: () => void) => void };
+    try {
+      reader.readInput?.(() => undefined);
+    } catch {
+      // blessed throws if the textbox is already reading; focus is enough in that case.
+    }
+    screen.render();
+  }
+
   async function submit() {
-    if (busy) return;
+    if (busy) return refocusInput();
     const text = String(input.getValue() ?? "").trim();
-    if (!text) return;
+    if (!text) return refocusInput();
     input.clearValue();
     history.push(text);
     history = history.slice(-200);
@@ -112,6 +125,7 @@ export async function runChatTui(config: BigentConfig): Promise<void> {
       const command = commands.find((entry) => entry.name === raw.toLowerCase());
       if (!command) add("system", `Unknown command: ${raw}`);
       else await command.run(rest.join(" ").trim());
+      refocusInput();
       return;
     }
 
@@ -136,15 +150,20 @@ export async function runChatTui(config: BigentConfig): Promise<void> {
     } finally {
       busy = false;
       updateHeader("ready");
+      refocusInput();
     }
   }
 
   async function quit() {
+    if (closed) return;
+    closed = true;
+    process.removeListener("SIGINT", onSigint);
     await fs.writeFile(historyPath, `${history.join("\n")}\n`, { mode: 0o600 });
     screen.destroy();
   }
 
-  input.key("enter", () => void submit());
+  input.on("submit", () => void submit());
+  input.key(["C-c", "C-d"], () => void quit());
   input.key("tab", () => {
     const value = String(input.getValue() ?? "");
     const s = suggestion(value);
@@ -155,15 +174,16 @@ export async function runChatTui(config: BigentConfig): Promise<void> {
   input.key("up", () => { historyIndex = Math.max(0, historyIndex - 1); input.setValue(history[historyIndex] ?? ""); input.focus(); updateHint(); });
   input.key("down", () => { historyIndex = Math.min(history.length, historyIndex + 1); input.setValue(history[historyIndex] ?? ""); input.focus(); updateHint(); });
   input.on("keypress", () => setTimeout(updateHint, 0));
-  screen.key(["C-c"], () => void quit());
+  screen.key(["C-c", "C-d"], () => void quit());
   screen.key(["pageup"], () => { transcript.scroll(-5); screen.render(); });
   screen.key(["pagedown"], () => { transcript.scroll(5); screen.render(); });
 
+  const onSigint = () => void quit();
+  process.once("SIGINT", onSigint);
   add("system", "BIgent TUI. Type / for commands, Tab to complete.");
   updateHeader("ready");
   updateHint();
-  input.focus();
-  screen.render();
+  refocusInput();
   await new Promise<void>((resolve) => screen.on("destroy", resolve));
 }
 

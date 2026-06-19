@@ -36,6 +36,7 @@ export async function runConfigTui(): Promise<void> {
   const values: ConfigEnv = { ...fileValues };
   let dirty = false;
   let selected = 0;
+  let closed = false;
 
   const screen = blessed.screen({ smartCSR: true, fullUnicode: true, title: "BIgent config" });
   const title = blessed.box({ top: 0, height: 3, width: "100%", border: "line", tags: true, content: `{bold}BIgent configuration{/bold}\n${CONFIG_ENV_PATH}`, style: { border: { fg: "cyan" } } });
@@ -92,6 +93,7 @@ export async function runConfigTui(): Promise<void> {
     const prompt = blessed.prompt({ parent: screen, border: "line", height: 9, width: "80%", top: "center", left: "center", label: ` ${field.label} `, tags: true, keys: true, vi: true, style: { border: { fg: "cyan" } } });
     prompt.input(`${field.help}\nValue:`, values[field.key] ?? "", (error, value) => {
       prompt.destroy();
+      list.focus();
       if (error || value === null || value === undefined) return render("edit cancelled");
       const next = String(value).trim();
       const validation = field.validate?.(next);
@@ -117,8 +119,18 @@ export async function runConfigTui(): Promise<void> {
   screen.key(["d", "backspace"], () => { delete values[FIELDS[selected].key]; dirty = true; render(`${FIELDS[selected].label} cleared`); });
   screen.key(["s"], save);
   screen.key(["r"], () => { for (const key of Object.keys(values)) delete values[key as ConfigEnvKey]; Object.assign(values, readConfigEnv()); dirty = false; render("reloaded file values"); });
-  screen.key(["q", "escape"], () => dirty ? render("Unsaved changes. Press s to save or Ctrl-C to quit without saving.") : screen.destroy());
-  screen.key(["C-c"], () => screen.destroy());
+  function quit() {
+    if (closed) return;
+    closed = true;
+    process.removeListener("SIGINT", onSigint);
+    screen.destroy();
+  }
+
+  const onSigint = () => quit();
+  process.once("SIGINT", onSigint);
+  screen.key(["q", "escape"], () => dirty ? render("Unsaved changes. Press s to save or Ctrl-C/Ctrl-D to quit without saving.") : quit());
+  screen.key(["C-c", "C-d"], quit);
+  list.key(["C-c", "C-d"], quit);
 
   render();
   list.focus();
