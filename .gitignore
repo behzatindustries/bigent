@@ -1,6 +1,13 @@
 node_modules/
 dist/
 .env
+*.env.local
+bigent.env
 .bigent/
+memories/
+sessions/
+auth.json
+models.json
+state.json
 npm-debug.log*
 *.tgz
